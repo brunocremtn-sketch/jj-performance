@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>JJ Performance</title>
+<meta name="description" content="Treino, evolução e coach de Jiu-Jítsu com periodização de 16 semanas.">
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#c8a96e">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<!-- iOS (adiciona à tela de início, modo standalone) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JJ Performance">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#08080e;--surface:#111118;--surface2:#18181f;
+  --glass:rgba(255,255,255,0.045);--glass2:rgba(255,255,255,0.06);
+  --border:rgba(255,255,255,0.07);--border-glow:rgba(200,169,110,0.2);
+  --gold:#c8a96e;--gold-bright:#e8c88e;--gold-dim:rgba(200,169,110,0.10);
+  --ember:#e55a2b;--ember-dim:rgba(229,90,43,0.10);
+  --text:#f0ede8;--text2:#7a7a8a;--text3:#4a4a5a;
+  --green:#4ade80;--red:#f87171;--yellow:#fbbf24;
+  --r-sm:8px;--r-md:14px;--r-lg:20px;--r-xl:28px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;line-height:1.5;overscroll-behavior:none;}
+body{display:flex;flex-direction:column;align-items:center;}
+#app{width:100%;max-width:540px;min-height:100vh;position:relative;padding-bottom:100px;}
+.screen{display:none;padding:16px 16px 110px;}
+.screen.active{display:block;}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  box-shadow:0 1px 1px rgba(0,0,0,.9),0 4px 8px rgba(0,0,0,.7),0 12px 24px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset;
+  position:relative;overflow:hidden;margin-bottom:12px;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--belt-grad,linear-gradient(90deg,#e8e8e8,#b8b8c8));}
+.card-inner{padding:16px;}
+.card-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:10px;}
+.glass{background:rgba(17,17,24,.85);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--border);}
+
+/* NAV PILL */
+.nav-pill{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:rgba(17,17,24,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:999px;padding:6px;
+  display:flex;gap:2px;box-shadow:0 8px 32px rgba(0,0,0,.8),0 2px 8px rgba(0,0,0,.6);
+  z-index:1000;width:calc(100% - 32px);max-width:480px;}
+.nav-item{flex:1;padding:8px 4px;border-radius:999px;display:flex;flex-direction:column;
+  align-items:center;gap:2px;cursor:pointer;transition:all .25s ease;position:relative;z-index:1;border:none;background:none;}
+.nav-icon{width:20px;height:20px;color:var(--text3);transition:color .25s;}
+.nav-label{font-size:10px;font-weight:600;color:var(--text3);transition:color .25s;white-space:nowrap;}
+.nav-item.active .nav-icon{color:var(--gold);}
+.nav-item.active .nav-label{color:var(--gold);}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:12px 20px;border-radius:var(--r-md);font-family:inherit;font-weight:700;
+  font-size:14px;cursor:pointer;border:none;transition:all .2s;}
+.btn-gold{background:var(--gold);color:#08080e;}
+.btn-gold:hover{background:var(--gold-bright);}
+.btn-outline{background:transparent;border:1px solid var(--border-glow);color:var(--gold);}
+.btn-outline:hover{background:var(--gold-dim);}
+.btn-full{width:100%;}
+.btn-video{display:inline-flex;align-items:center;gap:5px;background:var(--gold-dim);
+  border:1px solid rgba(200,169,110,.2);color:var(--gold);font-size:11px;font-weight:600;
+  padding:4px 10px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:inherit;}
+
+/* BOTTOM SHEET */
+.bottom-sheet{position:fixed;bottom:-100%;left:0;right:0;background:var(--surface);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;border-top:1px solid var(--border);
+  padding:12px 20px 40px;z-index:2000;transition:bottom .4s cubic-bezier(.4,0,.2,1);
+  max-height:85vh;overflow-y:auto;}
+.bottom-sheet.open{bottom:0;}
+.sheet-handle{width:36px;height:4px;background:var(--text3);border-radius:2px;margin:0 auto 16px;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);opacity:0;pointer-events:none;
+  transition:opacity .3s;z-index:1900;}
+.overlay.active{opacity:1;pointer-events:all;}
+
+/* HEADER */
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:18px 0 12px;}
+.app-logo{font-size:18px;font-weight:800;color:var(--text);letter-spacing:-.02em;}
+.app-logo span{color:var(--gold);}
+.icon-btn{width:38px;height:38px;border-radius:var(--r-sm);background:var(--surface2);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+/* TAGS / BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;}
+.badge-gold{background:var(--gold-dim);color:var(--gold);border:1px solid var(--border-glow);}
+.badge-green{background:rgba(74,222,128,.1);color:var(--green);}
+.badge-red{background:rgba(248,113,113,.1);color:var(--red);}
+.badge-ember{background:var(--ember-dim);color:var(--ember);}
+
+/* ACWR BAR */
+.acwr-bar-wrap{height:8px;background:var(--surface2);border-radius:999px;overflow:hidden;margin:8px 0;}
+.acwr-bar-fill{height:100%;border-radius:999px;transition:width .6s ease;}
+.acwr-zones{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);}
+
+/* FORM ELEMENTS */
+input,textarea,select{background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  font-family:inherit;font-size:14px;padding:10px 12px;border-radius:var(--r-md);width:100%;outline:none;
+  transition:border-color .2s;}
+input:focus,textarea:focus,select:focus{border-color:var(--gold);}
+label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;}
+.form-group{margin-bottom:14px;}
+select option{background:var(--surface2);}
+
+/* SEGMENTED */
+.seg-ctrl{display:flex;background:var(--surface2);border-radius:var(--r-md);padding:3px;gap:2px;margin-bottom:16px;}
+.seg-btn{flex:1;padding:7px 8px;border-radius:calc(var(--r-md) - 2px);font-family:inherit;font-weight:600;
+  font-size:12px;cursor:pointer;border:none;color:var(--text2);background:transparent;transition:all .2s;}
+.seg-btn.active{background:var(--surface);color:var(--gold);box-shadow:0 2px 8px rgba(0,0,0,.4);}
+
+/* EXERCISE ROW */
+.ex-row{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);}
+.ex-row:last-child{border-bottom:none;}
+.ex-num{width:26px;height:26px;background:var(--gold-dim);border-radius:6px;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;margin-top:1px;}
+.ex-main{flex:1;min-width:0;}
+.ex-name{font-weight:700;font-size:14px;color:var(--text);margin-bottom:2px;}
+.ex-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.ex-tag{font-size:11px;color:var(--text2);background:var(--surface2);padding:2px 7px;border-radius:999px;}
+.ex-tip{font-size:12px;color:var(--text2);margin-bottom:3px;}
+.ex-jj{font-size:11px;color:var(--gold);opacity:.8;display:flex;align-items:center;gap:4px;}
+
+/* DAY STRIP */
+.day-strip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:16px;}
+.day-strip::-webkit-scrollbar{display:none;}
+.day-btn{flex-shrink:0;width:44px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:8px 0;border-radius:var(--r-md);background:var(--surface2);border:1px solid var(--border);
+  cursor:pointer;transition:all .2s;font-family:inherit;}
+.day-btn.active{background:var(--gold-dim);border-color:var(--border-glow);}
+.day-btn .day-letter{font-size:12px;font-weight:700;color:var(--text2);}
+.day-btn.active .day-letter{color:var(--gold);}
+.day-btn .day-icon{font-size:16px;}
+.day-btn .day-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);}
+.day-btn.active .day-dot{background:var(--gold);}
+
+/* PROGRESS BAR */
+.prog-bar-wrap{background:var(--surface2);border-radius:999px;height:6px;overflow:hidden;}
+.prog-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold-bright));}
+
+/* SCORE RING */
+.score-ring-wrap{display:flex;flex-direction:column;align-items:center;padding:20px 0;}
+.score-ring-wrap svg{overflow:visible;}
+.score-center{font-size:42px;font-weight:800;fill:var(--text);}
+.score-sub{font-size:13px;fill:var(--text2);}
+
+/* ZONE BARS */
+.zone-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
+.zone-color{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.zone-name{font-size:12px;color:var(--text2);width:90px;flex-shrink:0;}
+.zone-range{font-size:12px;font-weight:600;color:var(--text);margin-left:auto;}
+
+/* CHAT */
+.chat-wrap{display:flex;flex-direction:column;gap:10px;padding-bottom:16px;}
+.msg-user{align-self:flex-end;max-width:80%;background:var(--gold-dim);border:1px solid var(--border-glow);
+  border-radius:var(--r-lg) var(--r-lg) 4px var(--r-lg);padding:10px 14px;font-size:14px;color:var(--text);}
+.msg-ai{align-self:flex-start;max-width:85%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r-lg) var(--r-lg) var(--r-lg) 4px;padding:10px 14px;font-size:14px;color:var(--text);}
+.msg-thinking{align-self:flex-start;display:flex;gap:4px;padding:12px 16px;}
+.dot-pulse{width:7px;height:7px;border-radius:50%;background:var(--text3);animation:pulse 1.2s infinite;}
+.dot-pulse:nth-child(2){animation-delay:.2s;}
+.dot-pulse:nth-child(3){animation-delay:.4s;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8);}40%{opacity:1;transform:scale(1);}}
+.chat-input-row{display:flex;gap:8px;margin-top:8px;}
+.chat-input-row input{flex:1;}
+.chat-send{width:44px;height:44px;border-radius:var(--r-md);background:var(--gold);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* TIMER */
+.timer-display{font-size:72px;font-weight:800;text-align:center;letter-spacing:-.04em;
+  background:linear-gradient(135deg,var(--text),var(--gold));-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.round-dots{display:flex;justify-content:center;gap:8px;margin:12px 0;}
+.round-dot{width:10px;height:10px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);}
+.round-dot.done{background:var(--gold);}
+.round-dot.active{background:var(--ember);box-shadow:0 0 8px var(--ember);}
+.pse-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0;}
+.pse-btn{aspect-ratio:1;border-radius:var(--r-sm);background:var(--surface2);border:1px solid var(--border);
+  font-family:inherit;font-weight:700;font-size:16px;color:var(--text2);cursor:pointer;transition:all .2s;}
+.pse-btn:hover,.pse-btn.selected{background:var(--gold-dim);border-color:var(--border-glow);color:var(--gold);}
+
+/* PROFILE MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;display:flex;
+  align-items:flex-end;justify-content:center;}
+.modal-sheet{background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;
+  border-top:1px solid var(--border);padding:20px 20px 40px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-size:22px;font-weight:800;margin-bottom:4px;color:var(--text);}
+.modal-sub{font-size:14px;color:var(--text2);margin-bottom:20px;}
+
+/* ASSESSMENT */
+.assess-ref{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:8px 0;}
+.assess-col{text-align:center;padding:6px 4px;border-radius:var(--r-sm);font-size:10px;}
+.assess-col .val{font-weight:700;font-size:12px;margin-bottom:2px;}
+.assess-col.poor{background:rgba(248,113,113,.1);color:var(--red);}
+.assess-col.reg{background:rgba(251,191,36,.1);color:var(--yellow);}
+.assess-col.good{background:rgba(74,222,128,.1);color:var(--green);}
+.assess-col.exc{background:rgba(200,169,110,.1);color:var(--gold);}
+.result-bar-wrap{height:8px;background:var(--surface2);border-radius:999px;overflow:hidden;margin:6px 0;}
+.result-bar{height:100%;border-radius:999px;transition:width .8s ease;}
+
+/* ANALYSIS */
+.analysis-step{display:flex;align-items:center;gap:10px;padding:8px 0;}
+.step-icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.step-icon.done{background:rgba(74,222,128,.2);color:var(--green);}
+.step-icon.active{background:var(--gold-dim);color:var(--gold);}
+.step-icon.pending{background:var(--surface2);color:var(--text3);}
+.step-text{font-size:13px;color:var(--text2);}
+.step-text.done{color:var(--text);}
+
+/* UTILS */
+.flex{display:flex;}.flex-col{flex-direction:column;}.gap-8{gap:8px;}.gap-12{gap:12px;}
+.items-center{align-items:center;}.justify-between{justify-content:space-between;}
+.mt-4{margin-top:4px;}.mt-8{margin-top:8px;}.mt-12{margin-top:12px;}.mt-16{margin-top:16px;}
+.mb-4{margin-bottom:4px;}.mb-8{margin-bottom:8px;}.mb-12{margin-bottom:12px;}
+.text-gold{color:var(--gold);}.text-muted{color:var(--text2);}.text-sm{font-size:13px;}
+.fw-700{font-weight:700;}.fw-800{font-weight:800;}
+.divider{height:1px;background:var(--border);margin:12px 0;}
+.section-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.stat-box{background:var(--surface2);border-radius:var(--r-md);padding:12px;border:1px solid var(--border);}
+.stat-val{font-size:24px;font-weight:800;color:var(--text);}
+.stat-label{font-size:11px;color:var(--text2);margin-top:2px;}
+
+/* TECHNIQUE CARD */
+.tech-card{background:var(--surface2);border-radius:var(--r-md);padding:12px;border:1px solid var(--border);margin-bottom:8px;}
+.tech-name{font-weight:700;font-size:14px;margin-bottom:4px;}
+.tech-desc{font-size:12px;color:var(--text2);margin-bottom:6px;}
+.tech-plan{font-size:12px;color:var(--gold);}
+
+/* POLAR */
+.polar-step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.polar-step:last-child{border-bottom:none;}
+.polar-step-num{width:28px;height:28px;border-radius:50%;background:var(--gold-dim);border:1px solid var(--border-glow);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;}
+.polar-step-body strong{font-size:13px;color:var(--text);display:block;margin-bottom:2px;}
+.polar-step-body p{font-size:12px;color:var(--text2);}
+
+/* CATEGORY CARD */
+.cat-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.cat-row:last-child{border-bottom:none;}
+.cat-name{font-weight:600;font-size:14px;}
+.cat-range{font-size:13px;color:var(--text2);}
+.cat-row.target{background:var(--gold-dim);border-radius:var(--r-sm);padding:10px 10px;border:1px solid var(--border-glow);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* DELOAD BANNER */
+.deload-banner{background:linear-gradient(135deg,rgba(229,90,43,.08),rgba(229,90,43,.04));
+  border:1px solid rgba(229,90,43,.2);border-radius:var(--r-md);padding:10px 14px;
+  font-size:13px;color:var(--ember);display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+
+/* COACH BUBBLE */
+.coach-card{display:flex;gap:12px;align-items:flex-start;background:var(--surface2);
+  border-radius:var(--r-lg);border:1px solid var(--border);padding:14px;margin-bottom:12px;}
+.coach-avatar{width:36px;height:36px;border-radius:50%;background:var(--gold-dim);border:1px solid var(--border-glow);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.coach-text{font-size:13px;color:var(--text2);line-height:1.6;}
+.coach-text strong{color:var(--text);display:block;margin-bottom:2px;}
+
+/* REGISTER MODAL */
+.pse-row{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin:10px 0;}
+.pse-chip{padding:8px 12px;border-radius:var(--r-sm);background:var(--surface2);border:1px solid var(--border);
+  font-family:inherit;font-weight:700;font-size:14px;color:var(--text2);cursor:pointer;transition:all .15s;min-width:44px;text-align:center;}
+.pse-chip.sel{background:var(--gold-dim);border-color:var(--border-glow);color:var(--gold);}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- SCREENS -->
+  <div id="sc-hoje" class="screen active"></div>
+  <div id="sc-treino" class="screen"></div>
+  <div id="sc-evolucao" class="screen"></div>
+  <div id="sc-comp" class="screen"></div>
+  <div id="sc-ia" class="screen"></div>
+
+  <!-- NAV PILL -->
+  <nav class="nav-pill" id="navPill">
+    <button class="nav-item active" onclick="goTab('hoje')" id="nav-hoje">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+      <span class="nav-label">Hoje</span>
+    </button>
+    <button class="nav-item" onclick="goTab('treino')" id="nav-treino">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6.5 6.5h11M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/><circle cx="12" cy="12" r="4"/></svg>
+      <span class="nav-label">Treino</span>
+    </button>
+    <button class="nav-item" onclick="goTab('evolucao')" id="nav-evolucao">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      <span class="nav-label">Evolução</span>
+    </button>
+    <button class="nav-item" onclick="goTab('comp')" id="nav-comp">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+      <span class="nav-label">Competição</span>
+    </button>
+    <button class="nav-item" onclick="goTab('ia')" id="nav-ia">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 01-1 1H9a1 1 0 01-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/><path d="M9 21h6M10 17v4M14 17v4"/></svg>
+      <span class="nav-label">IA</span>
+    </button>
+  </nav>
+
+  <!-- BOTTOM SHEETS -->
+  <div id="video-modal" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div id="video-modal-content"></div>
+  </div>
+  <div id="register-modal" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div id="register-modal-content"></div>
+  </div>
+  <div id="overlay" class="overlay" onclick="closeAllSheets()"></div>
+
+  <!-- PROFILE SETUP MODAL -->
+  <div id="profile-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-sheet">
+      <div style="text-align:center;margin-bottom:16px;">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin:0 auto 12px;display:block;">
+          <rect width="48" height="48" rx="16" fill="rgba(200,169,110,0.1)"/>
+          <path d="M16 32l4-8 4 4 4-8 4 12" stroke="#c8a96e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="18" r="4" stroke="#c8a96e" stroke-width="2.5"/>
+        </svg>
+        <div class="modal-title">JJ Performance</div>
+        <div class="modal-sub">Configure seu perfil para começar</div>
+      </div>
+      <div class="form-group"><label>Nome</label><input id="p-nome" placeholder="Seu nome" /></div>
+      <div class="grid-2">
+        <div class="form-group"><label>Idade</label><input id="p-idade" type="number" placeholder="30" /></div>
+        <div class="form-group"><label>Peso (kg)</label><input id="p-peso" type="number" placeholder="70" /></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Altura (cm)</label><input id="p-altura" type="number" placeholder="175" /></div>
+        <div class="form-group">
+          <label>Faixa</label>
+          <select id="p-faixa">
+            <option value="Branca">Branca</option>
+            <option value="Azul">Azul</option>
+            <option value="Roxa">Roxa</option>
+            <option value="Marrom">Marrom</option>
+            <option value="Preta">Preta</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>Objetivo principal</label>
+        <select id="p-obj">
+          <option value="performance">Performance e evolução no JJ</option>
+          <option value="competicao">Competição</option>
+          <option value="condicionamento">Condicionamento físico</option>
+          <option value="saude">Saúde e longevidade</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Chave API Anthropic (opcional)</label>
+        <input id="p-api" type="password" placeholder="sk-ant-... (deixe vazio para usar a IA local gratuita)" />
+        <p style="font-size:11px;color:var(--text3);margin-top:4px;">O coach IA já funciona 100% grátis e offline, com dicas baseadas nos seus dados. Colar uma chave Anthropic é opcional e ativa respostas geradas por IA online. Seus dados ficam apenas no seu dispositivo.</p>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="saveProfile()" style="margin-top:8px;">
+        Começar treinamento
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA — 16 SEMANAS
+// ============================================================
+const PERIODOS = [
+  // SEMANA 1 — Base Aeróbia
+  { sem:1, fase:'Base Aeróbia', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:4,reps:'12',descanso:90,dica:'Joelhos sobre os dedos, peito erguido, desça até coxa paralela',jj:'Força base para quedas, pressure passing e esquiva'},
+        {nome:'Leg Press 45°',series:3,reps:'15',descanso:60,dica:'Pés altos na plataforma, amplitude completa',jj:'Explosão de quadril em takedowns e guard recovery'},
+        {nome:'Mesa Flexora',series:3,reps:'12',descanso:60,dica:'Contração no pico, descida em 3 segundos',jj:'Flexão de joelho para triângulo, x-guard e calf slicer'},
+        {nome:'Hip Thrust',series:3,reps:'15',descanso:60,dica:'Escápulas no banco, quadril completo, segura 1s no topo',jj:'Extensão de quadril para guard recovery e bridge escape'},
+        {nome:'Panturrilha em Pé',series:3,reps:'20',descanso:45,dica:'Amplitude completa, 2s no topo, controle na descida',jj:'Equilíbrio e base nos pés para luta em pé'},
+        {nome:'Prancha Frontal',series:3,reps:'45s',descanso:45,dica:'Corpo em linha reta, core ativado, respira normalmente',jj:'Estabilidade central em todas as guardas e posições'},
+      ],
+      b:[
+        {nome:'Supino Inclinado Halteres',series:4,reps:'12',descanso:90,dica:'Cotovelos a 45° do corpo, descida controlada 3s',jj:'Empurrar em guard push, criação de frames e bisceps slicer'},
+        {nome:'Remada Curvada',series:4,reps:'12',descanso:90,dica:'Costas neutras, cotovelo rente ao corpo, aperta escápula',jj:'Força de puxada para clinch, underhooks e sleeve grips'},
+        {nome:'Pulldown Supinado',series:3,reps:'12',descanso:75,dica:'Puxar até o queixo, ombro para baixo e atrás',jj:'Puxada para guardar closed guard e lapel grips'},
+        {nome:'Desenvolvimento Halteres',series:3,reps:'12',descanso:75,dica:'Neutro no início, rotaciona para cima, não hiperextenda',jj:'Framing, postura ereta na luta em pé'},
+        {nome:'Rosca Martelo',series:3,reps:'15',descanso:60,dica:'Cotovelo fixo, polegar aponta para cima',jj:'Força de preensão e grips de kimono'},
+        {nome:'Tríceps Corda',series:3,reps:'15',descanso:60,dica:'Cotovelo fixo, abre a corda no final da extensão',jj:'Push em frames, passagem de guarda'},
+      ],
+      c:[
+        {nome:'Terra Romeno (RDL)',series:4,reps:'10',descanso:90,dica:'Quadril para trás, barra próxima às pernas, costas neutras',jj:'Força posterior completa para bases e guard passing'},
+        {nome:'Agachamento Búlgaro',series:3,reps:'10',descanso:75,dica:'Tronco erguido, joelho não passa o dedão do pé',jj:'Estabilidade unilateral para saídas de quadril e entradas'},
+        {nome:'Bom Dia',series:3,reps:'12',descanso:75,dica:'Barra no trapézio, dobradiça de quadril, mantém arco',jj:'Cadeia posterior para posturas e guard passing'},
+        {nome:'Elevação Pélvica Unilateral',series:3,reps:'12',descanso:60,dica:'Um pé no chão, extensão máxima, segura 1s',jj:'Glúteo unilateral para guard shrimping e base lateral'},
+        {nome:'Dead Bug',series:3,reps:'10',descanso:45,dica:'Lombar no chão durante todo o exercício, extensão lenta',jj:'Controle de quadril para todas as guardas'},
+        {nome:'Farmer Carry 30m',series:3,reps:'30m',descanso:90,dica:'Ombros para baixo, core ativado, passos firmes e controlados',jj:'Força de grip e estabilidade sob pressão'},
+      ]
+    },
+    jj:{intensidade:'Leve-Moderado',foco:'Fundamentos: guarda fechada, passagem básica, montada'},
+    cardio:'15-20min corrida Z2 após JJ (Ter/Qui). FC alvo 130-145bpm. Conversação possível. Meta: construir base aeróbia para recuperação entre lutas.',
+    nutri:'2.0g proteína/kg/dia. Carboidratos nos períodos pré/pós-treino. 2.5L água. Creatina 3-5g/dia.',
+  },
+  // SEMANA 2 — Base Aeróbia
+  { sem:2, fase:'Base Aeróbia', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:4,reps:'12',descanso:90,dica:'Adicione 2.5kg em relação à semana 1, mantenha técnica',jj:'Progressão de força para quedas e posições de base'},
+        {nome:'Leg Press 45°',series:3,reps:'15',descanso:60,dica:'Aumente levemente a carga, amplitude total',jj:'Explosão de quadril em takedowns'},
+        {nome:'Mesa Flexora',series:3,reps:'12',descanso:60,dica:'Carga estável, foco na descida excêntrica',jj:'Força para guardas de joelho e triângulos'},
+        {nome:'Hip Thrust',series:4,reps:'12',descanso:60,dica:'Aumente 1 série, adicione carga se form estiver boa',jj:'Bridging e guard recovery'},
+        {nome:'Panturrilha Sentado',series:3,reps:'20',descanso:45,dica:'Peso no joelho ou máquina, amplitude total',jj:'Estabilidade e equilíbrio na luta em pé'},
+        {nome:'Prancha Lateral',series:3,reps:'30s',descanso:45,dica:'Quadril elevado, corpo reto, olha para frente',jj:'Estabilidade lateral para x-guard e de la riva'},
+      ],
+      b:[
+        {nome:'Supino Plano Halteres',series:4,reps:'12',descanso:90,dica:'Amplitude completa, escápula retraída e deprimida',jj:'Frames e push no guard'},
+        {nome:'Remada 1 Braço Haltere',series:4,reps:'12',descanso:75,dica:'Costas planas, puxe cotovelo ao teto',jj:'Grips e puxadas assimétricas no JJ'},
+        {nome:'Pulldown Aberto',series:3,reps:'12',descanso:75,dica:'Pegada ligeiramente mais larga que ombros',jj:'Puxadas e guardas altas'},
+        {nome:'Elevação Lateral',series:3,reps:'15',descanso:60,dica:'Cotovelos levemente flexionados, controla a descida',jj:'Força dos deltoides para underhooks'},
+        {nome:'Rosca Direta',series:3,reps:'12',descanso:60,dica:'Sem balanço do tronco, cotovelo fixo',jj:'Grips e puxadas no kimono'},
+        {nome:'Tríceps Testa',series:3,reps:'12',descanso:60,dica:'Cotovelos apontados para cima, não abra',jj:'Push em frames e passagens'},
+      ],
+      c:[
+        {nome:'Stiff Leg Deadlift',series:4,reps:'10',descanso:90,dica:'Pernas quase retas, sente o alongamento dos isquiotibiais',jj:'Cadeia posterior para guard passing e estabilidade'},
+        {nome:'Passada com Halteres',series:3,reps:'10',descanso:75,dica:'Tronco erguido, joelho da frente não passa o pé',jj:'Movimentos unilaterais para saídas e entradas no JJ'},
+        {nome:'Hiperextensão',series:3,reps:'12',descanso:60,dica:'Sem hiperextensão lombar, contrai glúteo no topo',jj:'Extensão de quadril para posturas e guard passing'},
+        {nome:'Abdução de Quadril',series:3,reps:'15',descanso:45,dica:'Movimento controlado, mantém pelve estável',jj:'Estabilidade do quadril para guardas laterais'},
+        {nome:'Abdominal Supra',series:3,reps:'20',descanso:45,dica:'Sobe o ombro do chão, não o pescoço, controla descida',jj:'Core anterior para postura e guard pull'},
+        {nome:'Rotação Russa',series:3,reps:'20',descanso:45,dica:'Carga moderada, mantém postura, gira o tronco',jj:'Força rotacional para sweeps e escapes'},
+      ]
+    },
+    jj:{intensidade:'Leve-Moderado',foco:'Posição de montada: manutenção, transições, triângulo da montada'},
+    cardio:'20min corrida Z2 + 5min Z3 ao final (Ter/Qui). Progride 5min/semana.',
+    nutri:'2.0g proteína/kg. Aumenta carboidratos pré-JJ em 20g. Hidratação constante durante treinos.',
+    deload:false
+  },
+  // SEMANA 3 — Base Aeróbia
+  { sem:3, fase:'Base Aeróbia', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:4,reps:'10',descanso:90,dica:'Aumenta carga 5%, mantém profundidade e técnica',jj:'Força de quadril para todas as posições de base'},
+        {nome:'Leg Press 45°',series:4,reps:'12',descanso:75,dica:'Adicione 1 série, carga moderada',jj:'Potência de pernas para takedowns'},
+        {nome:'Mesa Flexora',series:3,reps:'10',descanso:60,dica:'Carga ligeiramente maior, foco na tensão muscular',jj:'Triângulos, x-guard, calf slicers'},
+        {nome:'Hip Thrust com Haltere',series:4,reps:'12',descanso:60,dica:'Haltere no quadril, amplitude completa',jj:'Explosão de quadril para escapes de baixo'},
+        {nome:'Afundo Lateral',series:3,reps:'10',descanso:60,dica:'Descida lateral, joelho sobre o pé, tronco erguido',jj:'Mobilidade e força adutores para guardas'},
+        {nome:'Prancha com Toque no Ombro',series:3,reps:'10',descanso:45,dica:'Quadril estável, mínimo de rotação ao tocar',jj:'Anti-rotação do core para posições dinâmicas'},
+      ],
+      b:[
+        {nome:'Supino Inclinado Halteres',series:4,reps:'10',descanso:90,dica:'Aumenta carga, amplitude e controle',jj:'Frames e pushes no guard'},
+        {nome:'Remada T-Bar',series:4,reps:'10',descanso:90,dica:'Costas neutras, puxe até o peito, aperta no topo',jj:'Força bilateral de puxada para clinch'},
+        {nome:'Pullup Assistido ou Barra',series:3,reps:'8',descanso:90,dica:'Amplitude completa, desce completamente',jj:'Força máxima de puxada para guardas altas'},
+        {nome:'Crucifixo Halteres',series:3,reps:'12',descanso:60,dica:'Cotovelos levemente flexionados, sente o peitoral',jj:'Força dos peitorais para frames e posições de clinch'},
+        {nome:'Rosca Concentrada',series:3,reps:'12',descanso:60,dica:'Cotovelo no joelho, amplitude total, sem balanço',jj:'Preensão e força de cotovelo para kimuras'},
+        {nome:'Mergulho em Paralelas',series:3,reps:'10',descanso:75,dica:'Desça até cotovelo a 90°, tronco levemente inclinado',jj:'Força de push e frames'},
+      ],
+      c:[
+        {nome:'Levantamento Terra',series:4,reps:'6',descanso:120,dica:'Barra sobre os pés, quadril na altura certa, barra próxima ao corpo',jj:'Força total para takedowns e guard passing'},
+        {nome:'Agachamento Hack',series:3,reps:'12',descanso:75,dica:'Amplitude completa, controla a descida',jj:'Força de quádriceps para base e passagens'},
+        {nome:'Cadeira Adutora',series:3,reps:'15',descanso:60,dica:'Amplitude completa, sem solavancos',jj:'Adutores para triângulos e guard fechado'},
+        {nome:'Good Morning',series:3,reps:'10',descanso:75,dica:'Barra no trapézio, dobradiça de quadril controlada',jj:'Cadeia posterior para posturas'},
+        {nome:'Ab Rollout ou Roda',series:3,reps:'10',descanso:60,dica:'Costas neutras, extensão máxima que conseguir',jj:'Core para todas as posições de guarda'},
+        {nome:'Russian Twist com peso',series:3,reps:'16',descanso:45,dica:'Pés no chão ou levantados, gira o tronco',jj:'Core rotacional para sweeps'},
+      ]
+    },
+    jj:{intensidade:'Moderado',foco:'Half guard: sweep básico, kimura da meia guarda, passagem torreando'},
+    cardio:'25min Z2 contínuo (Ter/Qui). FC alvo 135-150bpm.',
+    nutri:'2.2g proteína/kg. Carbo-loading leve nos dias de JJ. Dorme 7-9h — recuperação muscular.',
+    deload:false
+  },
+  // SEMANA 4 — DELOAD
+  { sem:4, fase:'Base Aeróbia — Deload', deload:true,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:3,reps:'10',descanso:90,dica:'60% da carga da semana 3 — movimento e técnica, não esforço',jj:'Manutenção de padrão motor'},
+        {nome:'Leg Press 45°',series:2,reps:'12',descanso:75,dica:'Carga leve, foco na técnica',jj:'Manutenção'},
+        {nome:'Hip Thrust',series:2,reps:'12',descanso:60,dica:'Peso corporal ou muito leve',jj:'Ativação glúteo'},
+        {nome:'Prancha Frontal',series:2,reps:'30s',descanso:45,dica:'Core ativo, sem esforço máximo',jj:'Manutenção core'},
+      ],
+      b:[
+        {nome:'Remada Curvada',series:3,reps:'10',descanso:90,dica:'60% da carga, técnica perfeita',jj:'Manutenção força de costas'},
+        {nome:'Supino Plano Halteres',series:2,reps:'10',descanso:75,dica:'Carga leve, amplitude completa',jj:'Manutenção'},
+        {nome:'Pulldown',series:2,reps:'12',descanso:75,dica:'Leve, foco na contração escapular',jj:'Manutenção'},
+      ],
+      c:[
+        {nome:'Terra Romeno',series:3,reps:'8',descanso:90,dica:'60% da carga, costas neutras, hip hinge perfeito',jj:'Manutenção cadeia posterior'},
+        {nome:'Dead Bug',series:2,reps:'8',descanso:45,dica:'Sem peso, foco na respiração e controle',jj:'Core estabilização'},
+        {nome:'Mobilidade quadril',series:2,reps:'10',descanso:30,dica:'90/90 stretch, hip circles, abertura lateral',jj:'Mobilidade para guardas'},
+      ]
+    },
+    jj:{intensidade:'Leve',foco:'Técnica sem pressão. Drill de posições básicas. Sem sparring intenso.'},
+    cardio:'15min caminhada rápida ou bike leve Z1-Z2. Recuperação ativa.',
+    nutri:'Mantém proteína. Reduz carboidratos 20%. Foco em recuperação e sono.',
+  },
+  // SEMANA 5 — Força
+  { sem:5, fase:'Força', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:5,reps:'8',descanso:120,dica:'Carga 5-10% maior que semana 3. Explosivo na subida.',jj:'Força máxima de pernas para takedowns e pressure passing'},
+        {nome:'Leg Press 45°',series:4,reps:'10',descanso:90,dica:'Carga elevada, descida em 3s, explosão na subida',jj:'Potência de pernas para ação rápida'},
+        {nome:'Mesa Flexora',series:4,reps:'10',descanso:75,dica:'Aumenta carga, controla excêntrico 4s',jj:'Força de joelho para guardas complexas'},
+        {nome:'Hip Thrust com barra',series:4,reps:'10',descanso:90,dica:'Carga progressiva, hip lock no topo 2s',jj:'Força máxima de extensão de quadril para bridge e escape'},
+        {nome:'Agachamento Sumô',series:3,reps:'10',descanso:75,dica:'Pés abertos 45°, abre os joelhos, vai fundo',jj:'Adutores e abdutores para guard play'},
+        {nome:'Prancha com Peso',series:3,reps:'30s',descanso:60,dica:'Anilha nas costas, progressão de peso',jj:'Core resistência sob carga'},
+      ],
+      b:[
+        {nome:'Supino Plano Halteres',series:4,reps:'8',descanso:120,dica:'Carga maior, controlado 3s na descida, explosivo na subida',jj:'Força de push para frames e guard passing'},
+        {nome:'Remada Curvada',series:5,reps:'8',descanso:90,dica:'Carga elevada, costas neutras estrita',jj:'Força máxima de puxada para clinch e armlock'},
+        {nome:'Barra Fixa',series:4,reps:'6',descanso:120,dica:'Amplitude completa, sem kipping, controla descida',jj:'Força de latissimus para guardas'},
+        {nome:'Desenvolvimento Militar',series:4,reps:'8',descanso:90,dica:'Barra ou halteres, sem arco lombar excessivo',jj:'Força de ombros para underhooks e framing'},
+        {nome:'Rosca Barra W',series:3,reps:'10',descanso:75,dica:'Sem balanço do tronco, sobe e desce controlado',jj:'Força de bíceps para grips de jiu-jítsu'},
+        {nome:'Tríceps Francês',series:3,reps:'10',descanso:75,dica:'Cotovelos apontados ao teto, extensão completa',jj:'Força de tríceps para frames'},
+      ],
+      c:[
+        {nome:'Levantamento Terra',series:5,reps:'5',descanso:180,dica:'Progressão de carga, técnica rigorosa, respiração diafragmática',jj:'Força total — o exercício mais transferível para o JJ'},
+        {nome:'Agachamento Búlgaro',series:4,reps:'8',descanso:90,dica:'Carregado com halteres, tronco erguido',jj:'Força unilateral para estabilidade e explosão'},
+        {nome:'Stiff Leg',series:3,reps:'10',descanso:90,dica:'Carga progressiva, hip hinge com tensão nos ísquios',jj:'Isquiotibiais e glúteo para guard passing'},
+        {nome:'Elevação Pélvica Unilateral',series:3,reps:'10',descanso:75,dica:'Haltere no quadril, extensão completa',jj:'Glúteo unilateral para base e escapes'},
+        {nome:'Pallof Press',series:3,reps:'10',descanso:60,dica:'Isométrico ou dinâmico com faixa/cabo',jj:'Anti-rotação do core para resistir sweeps'},
+        {nome:'Farmer Carry 40m',series:3,reps:'40m',descanso:90,dica:'Carga aumentada, passos firmes',jj:'Grip e core sob carga prolongada'},
+      ]
+    },
+    jj:{intensidade:'Moderado-Alto',foco:'Passagens de guarda: torreando, knee-slice, leg drag'},
+    cardio:'20min Z2 + 10min intervalado Z4 (30s rápido/90s lento, 4 ciclos). Ter/Qui.',
+    nutri:'2.2g proteína/kg. Carboidratos aumentados nos dias de academia. Creatina 5g/dia. Dorme 8h.',
+    deload:false
+  },
+  // SEMANA 6 — Força
+  { sem:6, fase:'Força', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:5,reps:'6',descanso:120,dica:'Aumenta 2.5-5kg, técnica estrita',jj:'Força máxima para takedowns'},
+        {nome:'Leg Press 45°',series:4,reps:'8',descanso:90,dica:'Carga alta, amplitude completa',jj:'Potência de extensão de quadril'},
+        {nome:'Mesa Flexora',series:3,reps:'8',descanso:90,dica:'Carga máxima com boa forma',jj:'Força de flexão para guardas'},
+        {nome:'Hip Thrust com Barra',series:4,reps:'8',descanso:90,dica:'Carga progressiva, pontos de amarração firmes',jj:'Força de extensão máxima de quadril'},
+        {nome:'Abdução de Quadril na Faixa',series:3,reps:'15',descanso:45,dica:'Faixa no joelho, movimento controlado',jj:'Abertura de guarda e defesa de passagens'},
+        {nome:'Prancha RKC',series:3,reps:'20s',descanso:60,dica:'Contrai tudo — glúteo, core, quads — 100% de tensão',jj:'Máxima rigidez de core'},
+      ],
+      b:[
+        {nome:'Supino Inclinado',series:4,reps:'6',descanso:120,dica:'Carga máxima com boa forma, spotter ideal',jj:'Força de empurrada para passagens'},
+        {nome:'Remada com Barra',series:5,reps:'6',descanso:90,dica:'Pegada prona, costas paralelas ao chão',jj:'Força de costas para grips'},
+        {nome:'Barra Fixa com Peso',series:3,reps:'5',descanso:120,dica:'Cinturão com anilha se conseguir mais de 8 limpos',jj:'Força de lat para puxadas'},
+        {nome:'Desenvolvimento Arnold',series:3,reps:'10',descanso:90,dica:'Rotação completa, amplitude total',jj:'Força de ombros para posições de clinch'},
+        {nome:'Rosca Inclinada',series:3,reps:'10',descanso:75,dica:'Amplitude extra, bíceps longo recrutado',jj:'Força de bíceps para grips de braço'},
+        {nome:'Dips Peitoral',series:3,reps:'8',descanso:90,dica:'Inclinado para frente, descida até cotovelos 90°',jj:'Força de push e posições de clinch'},
+      ],
+      c:[
+        {nome:'Levantamento Terra',series:5,reps:'3',descanso:180,dica:'Sets pesados, carga máxima com form perfeita',jj:'Força total máxima'},
+        {nome:'Agachamento Frontal',series:3,reps:'8',descanso:90,dica:'Cotovelos altos, tronco mais erguido que agachamento traseiro',jj:'Core e quadril para postura de luta'},
+        {nome:'RDL com Halteres',series:3,reps:'10',descanso:75,dica:'Sem dobrar os joelhos, sente os ísquios',jj:'Cadeia posterior para guard passing'},
+        {nome:'Agachamento Unilateral (Pistol Assistido)',series:3,reps:'6',descanso:90,dica:'Segura TRX ou parede para assistência',jj:'Força e equilíbrio unilateral para JJ'},
+        {nome:'L-Sit Progressão',series:3,reps:'15s',descanso:60,dica:'Começa com uma perna, progride',jj:'Força de core para guardas'},
+        {nome:'Battleropes ou Elástico Sprint',series:4,reps:'20s',descanso:60,dica:'Máxima explosão nos 20 segundos',jj:'Condicionamento e explosão de membro superior'},
+      ]
+    },
+    jj:{intensidade:'Moderado-Alto',foco:'Back takes: choke de trás, mata-leão, marcação das costas'},
+    cardio:'25min Z2 + 4×1min Z5 (sprint completo). Recuperação 2min entre sprints.',
+    nutri:'2.4g proteína/kg. Cicla carboidratos: alto nos dias de treino pesado, baixo nos dias leves.',
+    deload:false
+  },
+  // SEMANA 7 — Força
+  { sem:7, fase:'Força', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:5,reps:'5',descanso:150,dica:'Próximo do máximo. Sets pesados com técnica rigorosa.',jj:'Força máxima de pernas para JJ'},
+        {nome:'Leg Press',series:3,reps:'8',descanso:90,dica:'Carga alta, mantém amplitude',jj:'Força de extensão para takedowns'},
+        {nome:'Levantamento Terra Romeno',series:4,reps:'8',descanso:90,dica:'Aumenta progressão de carga',jj:'Isquiotibiais e glúteos para o JJ'},
+        {nome:'Hip Thrust',series:4,reps:'8',descanso:90,dica:'Carga máxima com form perfeita',jj:'Extensão máxima de quadril'},
+        {nome:'Isometria de Adução',series:3,reps:'30s',descanso:45,dica:'Faixa entre joelhos, aperta com força máxima',jj:'Adutores para guard fechado e triângulos'},
+        {nome:'Core — Hollow Body',series:3,reps:'20s',descanso:45,dica:'Lombar cola no chão, braços e pernas levantados',jj:'Tensão de core para todas as guardas'},
+      ],
+      b:[
+        {nome:'Supino Plano',series:5,reps:'5',descanso:150,dica:'Sets pesados, forma impecável',jj:'Força máxima de empurrada'},
+        {nome:'Pendlay Row',series:5,reps:'5',descanso:120,dica:'Barra toca o chão a cada rep, explosão na puxada',jj:'Força máxima de puxada'},
+        {nome:'Barra Fixa',series:4,reps:'6',descanso:120,dica:'Adiciona peso se necessário',jj:'Força de latissimus'},
+        {nome:'Face Pull',series:3,reps:'15',descanso:60,dica:'Corda ao rosto, rotação externa, segura 2s',jj:'Saúde rotacional do ombro — prevenção de lesões no JJ'},
+        {nome:'Curl Concentrado',series:3,reps:'10',descanso:75,dica:'Amplitude máxima, pico de contração',jj:'Força de bíceps para armbar defense e grips'},
+        {nome:'Tríceps com Haltere Unilateral',series:3,reps:'10',descanso:75,dica:'Amplitude completa, sem compensação',jj:'Força de extensão para frames'},
+      ],
+      c:[
+        {nome:'Terra Sumo',series:4,reps:'5',descanso:150,dica:'Pegada mais larga, pés abertos, quadril baixo',jj:'Força de quadril para posições abertas'},
+        {nome:'Agachamento Búlgaro',series:4,reps:'6',descanso:90,dica:'Carga progressiva, forma rigorosa',jj:'Força unilateral avançada'},
+        {nome:'Hip Extension na Máquina',series:3,reps:'12',descanso:75,dica:'Amplitude completa, glúteo máximo',jj:'Extensão de quadril para base e escapes'},
+        {nome:'Core — Bird Dog',series:3,reps:'10',descanso:45,dica:'Extensão oposta, mantém lombar neutro',jj:'Estabilidade de core para drilling'},
+        {nome:'Loaded Carries Variados',series:3,reps:'30m',descanso:90,dica:'Alterna: Farmer, Suitcase, Overhead carry',jj:'Estabilidade total e force output sob fadiga'},
+        {nome:'Medicine Ball Slam',series:3,reps:'10',descanso:60,dica:'Explosão total de todo o corpo, full expiração',jj:'Potência total e condicionamento'},
+      ]
+    },
+    jj:{intensidade:'Alto',foco:'Leg locks: heel hook defensivo, knee bar awareness, ashi garami básico'},
+    cardio:'30min Z2 estruturado. Monitora FC com Polar H10 — mantém abaixo de 150bpm.',
+    nutri:'2.4g proteína/kg. Magnesium 400mg antes de dormir. Colágeno 10g manhã com vitamina C.',
+    deload:false
+  },
+  // SEMANA 8 — DELOAD
+  { sem:8, fase:'Força — Deload', deload:true,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:3,reps:'8',descanso:90,dica:'60% da semana 7, técnica perfeita',jj:'Manutenção padrão motor'},
+        {nome:'Hip Thrust',series:2,reps:'10',descanso:60,dica:'Carga leve',jj:'Ativação'},
+        {nome:'Prancha',series:2,reps:'30s',descanso:45,dica:'Core ativo',jj:'Manutenção'},
+      ],
+      b:[
+        {nome:'Remada Curvada',series:3,reps:'8',descanso:90,dica:'60% carga',jj:'Manutenção'},
+        {nome:'Supino Halteres',series:2,reps:'10',descanso:75,dica:'Leve, técnica',jj:'Manutenção'},
+        {nome:'Pulldown',series:2,reps:'10',descanso:75,dica:'Leve',jj:'Manutenção'},
+      ],
+      c:[
+        {nome:'Terra Romeno',series:3,reps:'6',descanso:90,dica:'60% da carga, hip hinge perfeito',jj:'Manutenção cadeia posterior'},
+        {nome:'Mobilidade quadril e tornozelo',series:2,reps:'10',descanso:30,dica:'90/90, cocar, CARs de quadril',jj:'Mobilidade para guardas'},
+        {nome:'Respiração diafragmática',series:1,reps:'5min',descanso:0,dica:'Nariz, foco no abdômen, 4-7-8',jj:'Recuperação do sistema nervoso'},
+      ]
+    },
+    jj:{intensidade:'Leve',foco:'Revisão técnica. Drills lentos. Sem sparring competitivo.'},
+    cardio:'Caminhada 20min ou yoga. Recuperação completa.',
+    nutri:'Mantém proteína. Reduz 30% calorias totais. Sono prioritário.',
+  },
+  // SEMANA 9 — Potência
+  { sem:9, fase:'Potência', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento com Salto',series:4,reps:'6',descanso:120,dica:'Peso leve (30% 1RM), explosão máxima na subida, aterrissa suave',jj:'Explosão de pernas para takedowns e sprawls'},
+        {nome:'Agachamento Livre',series:4,reps:'5',descanso:120,dica:'Carga pesada + 1 série de agachamento de salto',jj:'Força-explosão para JJ'},
+        {nome:'Leg Press Explosivo',series:3,reps:'8',descanso:90,dica:'Concêntrico explosivo, excêntrico controlado 3s',jj:'Potência de extensão de quadril'},
+        {nome:'Hip Thrust Balístico',series:3,reps:'8',descanso:90,dica:'Movimento explosivo, explode o quadril para cima',jj:'Bridging explosivo para escapes'},
+        {nome:'Box Jump',series:4,reps:'5',descanso:120,dica:'Salta sobre a caixa, aterrissa com joelhos flexionados, desce andando',jj:'Reatividade e explosão para fora de posições'},
+        {nome:'Core — Ab Wheel',series:3,reps:'8',descanso:60,dica:'Progressão desde joelhos, lombar neutra sempre',jj:'Core para posições de guarda'},
+      ],
+      b:[
+        {nome:'Medicine Ball Chest Pass',series:4,reps:'8',descanso:90,dica:'Contra a parede ou com parceiro, força máxima',jj:'Explosão de push para guard passing'},
+        {nome:'Supino Plano Explosivo',series:4,reps:'5',descanso:120,dica:'50-60% 1RM, sobe o mais rápido possível',jj:'Potência de empurrada para frames'},
+        {nome:'Remada Explosiva',series:4,reps:'6',descanso:90,dica:'Concêntrico máximo, pausa e controla excêntrico',jj:'Potência de puxada para clinch e grips'},
+        {nome:'Barra Fixa Explosiva',series:3,reps:'5',descanso:120,dica:'Explode para cima, sobretudo o topo do movimento',jj:'Puxada explosiva para entradas de guard'},
+        {nome:'Kettlebell Swing',series:4,reps:'15',descanso:75,dica:'Hip hinge, snap do quadril, controlado na frente',jj:'Potência de quadril — um dos mais transferíveis para JJ'},
+        {nome:'Rotação com Medicine Ball',series:3,reps:'10',descanso:60,dica:'Lança contra a parede, absorve e relança',jj:'Potência rotacional para sweeps e escapes'},
+      ],
+      c:[
+        {nome:'Levantamento Terra',series:4,reps:'4',descanso:150,dica:'Carga pesada + snaatch grip opcional',jj:'Força total máxima'},
+        {nome:'Power Clean (técnica)',series:4,reps:'4',descanso:120,dica:'Se nunca fez, substitui por Hang Clean ou KB Swing',jj:'Potência total coordenada'},
+        {nome:'Agachamento Búlgaro',series:3,reps:'6',descanso:90,dica:'Carga progressiva, explosivo na subida',jj:'Força-explosão unilateral'},
+        {nome:'Broad Jump',series:4,reps:'4',descanso:90,dica:'Salta horizontal o máximo possível, aterrissa controlado',jj:'Potência horizontal para takedowns'},
+        {nome:'Pallof Press Isométrico',series:3,reps:'20s',descanso:60,dica:'Anti-rotação, 100% de tensão',jj:'Resistência rotacional para posições de luta'},
+        {nome:'Med Ball Slam Lateral',series:3,reps:'8',descanso:75,dica:'Lateral para o chão, máxima explosão',jj:'Potência lateral para saídas e escapes'},
+      ]
+    },
+    jj:{intensidade:'Alto',foco:'Sweep fundamentais: scissor sweep, hip bump, omoplata'},
+    cardio:'4×4min Z4-Z5 com 3min recuperação ativa entre. Alta intensidade, baixo volume.',
+    nutri:'2.4g proteína/kg. Pre-workout com cafeína 200mg. Beta-alanina 3.2g em dias de treino.',
+    deload:false
+  },
+  // SEMANA 10 — Potência
+  { sem:10, fase:'Potência', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento com Salto',series:5,reps:'5',descanso:120,dica:'Pode adicionar colete de peso 5-10%',jj:'Explosão de pernas'},
+        {nome:'Agachamento Livre',series:4,reps:'4',descanso:150,dica:'Carga pesada — perto do máximo com forma boa',jj:'Força máxima de pernas'},
+        {nome:'Split Squat Jumps',series:3,reps:'6',descanso:90,dica:'Alterna as pernas no ar, aterrissa com controle',jj:'Reatividade unilateral para entradas'},
+        {nome:'Hip Thrust Balístico',series:4,reps:'6',descanso:90,dica:'Explode o quadril com máxima velocidade',jj:'Explosão de quadril para escapes e bridging'},
+        {nome:'Depth Jump',series:4,reps:'4',descanso:120,dica:'Cai da caixa, toca o chão e salta imediatamente',jj:'Reatividade máxima — stiffness da cadeia posterior'},
+        {nome:'Dragon Flag Progressão',series:3,reps:'5',descanso:75,dica:'Com ou sem assistência, controla a descida',jj:'Core de alto nível para guardas de elite'},
+      ],
+      b:[
+        {nome:'Clap Push-up',series:4,reps:'6',descanso:90,dica:'Explosão máxima na subida, aterrissa suave',jj:'Explosão de push para guard passing'},
+        {nome:'Supino Plano',series:4,reps:'4',descanso:150,dica:'Carga máxima + sets explosivos com 50%',jj:'Força e potência de empurrada'},
+        {nome:'Remada Explosiva',series:4,reps:'5',descanso:120,dica:'Máxima velocidade concêntrica',jj:'Puxada explosiva para clinch e armdrags'},
+        {nome:'Muscle-up Progressão',series:3,reps:'3',descanso:120,dica:'Ou barra fixa explosiva + salto',jj:'Transição puxada-empurrada'},
+        {nome:'Kettlebell Snatch',series:4,reps:'8',descanso:90,dica:'Técnica antes da carga, quadril potente',jj:'Potência total do corpo'},
+        {nome:'Slam Ball',series:3,reps:'10',descanso:75,dica:'Máxima força de cada rep',jj:'Potência e condicionamento'},
+      ],
+      c:[
+        {nome:'Levantamento Terra Explosivo',series:4,reps:'3',descanso:150,dica:'Máxima velocidade após o chão',jj:'Explosão total'},
+        {nome:'Hang Power Clean',series:4,reps:'4',descanso:120,dica:'Ou KB Swing pesado se não domina',jj:'Triple extension para o JJ'},
+        {nome:'Lateral Bound',series:4,reps:'5',descanso:90,dica:'Salta lateral, aterrissa unipodal, estabiliza',jj:'Potência lateral e reatividade para JJ'},
+        {nome:'Agachamento Búlgaro Pesado',series:3,reps:'5',descanso:90,dica:'Carga progressiva',jj:'Força unilateral avançada'},
+        {nome:'Loaded Hip Rotation',series:3,reps:'12',descanso:60,dica:'Cabo ou faixa, rota o quadril com potência',jj:'Potência de quadril para guard recovery e sweeps'},
+        {nome:'Battle Rope Double Wave',series:4,reps:'30s',descanso:60,dica:'Máxima frequência, mantém postura de atleta',jj:'Condicionamento de membro superior'},
+      ]
+    },
+    jj:{intensidade:'Alto',foco:'Guard retention: movimento de quadril, inversões, berimbolo básico'},
+    cardri:'Tabata 4 rodadas — 20s esforço máximo / 10s repouso. Burpee, agachamento, montanha.',
+    nutri:'Aumenta carbs pré-treino. Beta-alanina dividida em doses. Dorme 8h+.',
+    deload:false
+  },
+  // SEMANA 11 — Potência
+  { sem:11, fase:'Potência', deload:false,
+    academia:{
+      a:[
+        {nome:'Complex Treino A',series:4,reps:'ver dica',descanso:180,dica:'Complex: Agachamento 5x + Salto 5x + Overhead Squat 5x — sem descanso entre exercícios',jj:'Complexo de potência para JJ'},
+        {nome:'Agachamento Livre Pesado',series:3,reps:'4',descanso:150,dica:'Carga máxima, sets de força',jj:'Manutenção de força máxima'},
+        {nome:'Box Jump Altitude',series:4,reps:'5',descanso:120,dica:'Caixa mais alta, foco na qualidade do salto',jj:'Explosão de quadril para JJ'},
+        {nome:'Single Leg Squat Pesado',series:3,reps:'5',descanso:90,dica:'Goblet ou halteres, total controle',jj:'Força unilateral avançada'},
+        {nome:'Nordic Curl',series:3,reps:'4',descanso:120,dica:'Excêntrico apenas se não consegue concêntrico',jj:'Isquiotibiais — prevenção de lesão no JJ'},
+        {nome:'Core — Stir the Pot',series:3,reps:'10',descanso:60,dica:'Cotovelos no fitball, círculos lentos',jj:'Core anti-extensão para todas as posições'},
+      ],
+      b:[
+        {nome:'Med Ball Rotational Slam',series:4,reps:'8',descanso:75,dica:'Rota e bate lateral, máxima velocidade',jj:'Potência rotacional para sweeps e escapes'},
+        {nome:'Supino Inclinado Pesado',series:4,reps:'4',descanso:150,dica:'Carga máxima com inclinação',jj:'Força e potência de push'},
+        {nome:'Remada Pesada',series:4,reps:'4',descanso:150,dica:'Sets de força pesados',jj:'Força máxima de puxada'},
+        {nome:'Push Press',series:4,reps:'5',descanso:120,dica:'Usa o quadril para ajudar o press, explosivo',jj:'Potência de ombros para underhooks e arremessos'},
+        {nome:'Towel Pull-ups',series:3,reps:'5',descanso:90,dica:'Duas toalhas na barra — força de grip máxima',jj:'Grip específico para JJ'},
+        {nome:'Kroc Rows',series:3,reps:'15',descanso:75,dica:'Peso máximo que consegue com form',jj:'Força de puxada máxima'},
+      ],
+      c:[
+        {nome:'Levantamento Terra Pesado',series:3,reps:'3',descanso:180,dica:'Máximo seguro, perto do 1RM',jj:'Força máxima'},
+        {nome:'Jump Squat com Colete',series:4,reps:'5',descanso:120,dica:'5-10% peso corporal, máxima explosão',jj:'Potência com carga'},
+        {nome:'Hip Thrust Balístico Pesado',series:4,reps:'5',descanso:90,dica:'Carga máxima com movimento explosivo',jj:'Potência de extensão de quadril'},
+        {nome:'Lateral Hurdle Hop',series:4,reps:'6',descanso:90,dica:'Salta obstáculos lateralmente, reatividade',jj:'Agilidade lateral para JJ'},
+        {nome:'Rollout Avançado',series:3,reps:'8',descanso:75,dica:'De pé se conseguir, senão joelhos',jj:'Core avançado'},
+        {nome:'Isometria Total — Posição JJ',series:3,reps:'30s',descanso:60,dica:'Adopta posição de guarda ou passe — mantém isometricamente',jj:'Transferência direta — força específica'},
+      ]
+    },
+    jj:{intensidade:'Muito Alto',foco:'Sparring intencional: escolhe uma posição e trabalha específico'},
+    cardio:'Circuito JJ-específico: sprawl+pull+shrimp, 6 rodadas de 5min com 1min descanso.',
+    nutri:'Creatina loading se não usa (20g/4x/dia por 5 dias). Cafeína estratégica. Sono 8h.',
+    deload:false
+  },
+  // SEMANA 12 — DELOAD
+  { sem:12, fase:'Potência — Deload', deload:true,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:3,reps:'6',descanso:90,dica:'60% carga, técnica perfeita, sem fadiga',jj:'Manutenção'},
+        {nome:'Hip Thrust',series:2,reps:'10',descanso:60,dica:'Leve, ativação',jj:'Ativação glúteo'},
+        {nome:'Box Jump',series:2,reps:'3',descanso:90,dica:'Qualidade máxima, sem carga',jj:'Manutenção reatividade'},
+      ],
+      b:[
+        {nome:'Supino Halteres',series:2,reps:'8',descanso:75,dica:'Leve, técnica',jj:'Manutenção'},
+        {nome:'Remada 1 Braço',series:2,reps:'10',descanso:75,dica:'Leve',jj:'Manutenção'},
+        {nome:'KB Swing Leve',series:2,reps:'10',descanso:60,dica:'50% carga normal',jj:'Manutenção padrão'},
+      ],
+      c:[
+        {nome:'Terra Romeno',series:2,reps:'6',descanso:90,dica:'Leve',jj:'Manutenção'},
+        {nome:'Mobilidade total do corpo',series:1,reps:'15min',descanso:0,dica:'Flow: quadril, torácica, ombros, tornozelo',jj:'Prepara para fase de pico'},
+        {nome:'Respiração e ativação',series:2,reps:'5min',descanso:0,dica:'Box breathing 4-4-4-4',jj:'Sistema nervoso'},
+      ]
+    },
+    jj:{intensidade:'Leve',foco:'Técnica pura sem intensidade. Revisa posições básicas. Foco no prazer da arte.'},
+    cardio:'Caminhada ou natação leve 20-30min. Recuperação ativa.',
+    nutri:'Mantém macro proteica. Reduz calorias 20%. Foco em qualidade do sono.',
+  },
+  // SEMANA 13 — Pico
+  { sem:13, fase:'Pico', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:3,reps:'4',descanso:150,dica:'Carga pesada — 90% 1RM, técnica perfeita',jj:'Manutenção de força máxima'},
+        {nome:'Agachamento de Salto',series:3,reps:'5',descanso:90,dica:'Peso corporal, explosão máxima',jj:'Manutenção de potência'},
+        {nome:'Hip Thrust',series:3,reps:'8',descanso:75,dica:'Carga alta, movimento controlado',jj:'Manutenção de força de quadril'},
+        {nome:'Nordic Curl',series:2,reps:'5',descanso:90,dica:'Excêntrico ou completo',jj:'Prevenção de lesão — isquiotibiais'},
+        {nome:'Box Jump',series:3,reps:'3',descanso:120,dica:'Qualidade máxima, sem fadiga',jj:'Explosão máxima — pico'},
+        {nome:'Core Específico JJ',series:3,reps:'10',descanso:60,dica:'Hip escape shrimp, inversões, rotações',jj:'Transferência direta para o tatame'},
+      ],
+      b:[
+        {nome:'Supino Plano',series:3,reps:'4',descanso:150,dica:'90% 1RM, técnica perfeita',jj:'Força máxima de empurrada'},
+        {nome:'Remada',series:3,reps:'4',descanso:150,dica:'Sets pesados',jj:'Força máxima de puxada'},
+        {nome:'Barra Fixa com Peso',series:3,reps:'4',descanso:120,dica:'Peso adicional se fizer mais de 6',jj:'Força máxima latissimus'},
+        {nome:'Clap Push-up',series:3,reps:'5',descanso:90,dica:'Qualidade sobre quantidade',jj:'Potência de push'},
+        {nome:'Towel Pull-up',series:2,reps:'6',descanso:90,dica:'Grip específico JJ',jj:'Grip para kimono'},
+        {nome:'Carries Pesados',series:3,reps:'30m',descanso:90,dica:'Variados — farmer, zercher, overhead',jj:'Estabilidade sob carga máxima'},
+      ],
+      c:[
+        {nome:'Levantamento Terra',series:3,reps:'3',descanso:180,dica:'Próximo do máximo — carga de competição',jj:'Força total pico'},
+        {nome:'Power Clean ou KB Snatch',series:3,reps:'4',descanso:120,dica:'Técnica precisa',jj:'Potência total'},
+        {nome:'Split Jerk (ou Push Press)',series:3,reps:'4',descanso:120,dica:'Potência overhead',jj:'Força de overhead para defesa'},
+        {nome:'Broad Jump',series:3,reps:'4',descanso:90,dica:'Máxima distância — registra',jj:'Potência horizontal'},
+        {nome:'Lateral Bound',series:3,reps:'5',descanso:90,dica:'Potência lateral máxima',jj:'Reatividade lateral'},
+        {nome:'Isometrias JJ',series:4,reps:'20s',descanso:60,dica:'Posições de mounted, side control, guard — mantém com força máxima',jj:'Força estática específica'},
+      ]
+    },
+    jj:{intensidade:'Alto',foco:'Competition prep: situações de competição, pontuação, treino amistoso'},
+    cardio:'Circuito esporte-específico 4×5min. Replica o esforço de uma luta completa.',
+    nutri:'2.4g proteína. Carbo ciclado. Suplementação estratégica. Sono máximo.',
+    deload:false
+  },
+  // SEMANA 14 — Pico
+  { sem:14, fase:'Pico', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:3,reps:'3',descanso:180,dica:'Carga próxima ao máximo — qualidade acima de tudo',jj:'Pico de força'},
+        {nome:'Jump Squat',series:4,reps:'4',descanso:120,dica:'Peso corporal ou colete leve',jj:'Pico de potência'},
+        {nome:'Hip Thrust',series:3,reps:'6',descanso:90,dica:'Carga pesada, explosivo',jj:'Pico de extensão de quadril'},
+        {nome:'Box Jump Máximo',series:4,reps:'3',descanso:120,dica:'Caixa na maior altura possível com qualidade',jj:'Pico de reatividade'},
+        {nome:'Nordic Curl',series:2,reps:'4',descanso:90,dica:'Prevenção, não fadiga',jj:'Proteção isquiotibiais'},
+        {nome:'JJ Specific Core',series:3,reps:'30s',descanso:60,dica:'Posição de guarda com pressão manual — mantém',jj:'Pico de força de core para o tatame'},
+      ],
+      b:[
+        {nome:'Supino + Clap Push',series:3,reps:'4+4',descanso:150,dica:'Complexo: sets de supino pesado seguido imediatamente de clap push-up',jj:'Pico de potência de empurrada'},
+        {nome:'Remada + MB Throw',series:3,reps:'4+6',descanso:150,dica:'Complexo: remada pesada + lançamento de medicine ball',jj:'Pico de potência de puxada'},
+        {nome:'Barra Fixa',series:3,reps:'5',descanso:120,dica:'Com peso ou bodyweight pesado',jj:'Força de latissimus'},
+        {nome:'Push Press',series:3,reps:'4',descanso:120,dica:'Carga pesada',jj:'Potência de ombros'},
+        {nome:'Towel Hang',series:3,reps:'30s',descanso:90,dica:'Pendurado em toalhas — isometria de grip',jj:'Grip de kimono — específico'},
+        {nome:'Complex Upper Body',series:2,reps:'5 cada',descanso:120,dica:'Remada + Barra + Push + Dip — sem descanso',jj:'Resistência de força membros superiores'},
+      ],
+      c:[
+        {nome:'Levantamento Terra',series:3,reps:'2',descanso:180,dica:'Carga máxima — registro pessoal',jj:'Teste de força máxima'},
+        {nome:'Power Clean',series:3,reps:'3',descanso:150,dica:'Técnica máxima, carga moderada-alta',jj:'Potência total'},
+        {nome:'Plyometric Complex',series:4,reps:'ver dica',descanso:120,dica:'Box Jump + Broad Jump + Lateral Bound — 3 saltos consecutivos',jj:'Sequência de potência multi-direcional para JJ'},
+        {nome:'Loaded Hip Rotation Pesado',series:3,reps:'8',descanso:90,dica:'Cabo pesado, potência rotacional máxima',jj:'Pico de potência rotacional para sweeps'},
+        {nome:'Rollout Standing',series:3,reps:'5',descanso:75,dica:'De pé — nível avançado',jj:'Pico de força de core'},
+        {nome:'JJ Specific Isometrics',series:4,reps:'20s',descanso:60,dica:'Posições de half guard, guard pass — resistência máxima',jj:'Força estática específica para pico'},
+      ]
+    },
+    jj:{intensidade:'Muito Alto',foco:'Live sparring máximo — aplica tudo que treinou'},
+    cardio:'Apenas aquecimento — não cansatiante. Preserve energia para o JJ e academia.',
+    nutri:'Pico nutricional. Carbo loading estratégico. Hidratação monitorada. Dorme máximo.',
+    deload:false
+  },
+  // SEMANA 15 — Pico
+  { sem:15, fase:'Pico', deload:false,
+    academia:{
+      a:[
+        {nome:'Agachamento Livre',series:2,reps:'3',descanso:180,dica:'Máximo — registra. Qualidade total.',jj:'Pico absoluto de força'},
+        {nome:'Jump Squat',series:3,reps:'5',descanso:120,dica:'Peso corporal, máxima altura',jj:'Pico de potência'},
+        {nome:'Hip Thrust',series:2,reps:'5',descanso:90,dica:'Carga máxima',jj:'Pico de extensão de quadril'},
+        {nome:'Plyometric Lower',series:3,reps:'4',descanso:120,dica:'Box Jump máximo + Depth Jump',jj:'Pico reatividade'},
+        {nome:'Core JJ Avançado',series:3,reps:'30s',descanso:60,dica:'Movimentos específicos de guarda e escape',jj:'Pico core específico'},
+      ],
+      b:[
+        {nome:'Supino Plano',series:2,reps:'3',descanso:180,dica:'Carga máxima — registra',jj:'Pico força de empurrada'},
+        {nome:'Remada',series:2,reps:'3',descanso:180,dica:'Carga máxima',jj:'Pico força de puxada'},
+        {nome:'Barra Fixa',series:2,reps:'5',descanso:120,dica:'Máximo com boa forma',jj:'Pico força lat'},
+        {nome:'Clap Push-up',series:3,reps:'5',descanso:90,dica:'Máxima altura e velocidade',jj:'Pico potência empurrada'},
+        {nome:'Specific Grip Work',series:3,reps:'30s',descanso:75,dica:'Bucket de arroz, GD trainer, towel curls',jj:'Grip de competição'},
+      ],
+      c:[
+        {nome:'Terra',series:2,reps:'2',descanso:180,dica:'Máximo — registra para histórico',jj:'Pico de força total'},
+        {nome:'Power Complex Final',series:3,reps:'3',descanso:150,dica:'Clean + Push Press + Jump',jj:'Máxima potência total'},
+        {nome:'JJ Circuit Specific',series:3,reps:'5min',descanso:60,dica:'Shrimp, hip escape, granby roll, inversão — flui pelos movimentos',jj:'Transferência máxima para o tatame'},
+      ]
+    },
+    jj:{intensidade:'Alto-Máximo',foco:'Competição simulada. Regras, pontuação, adversário resistente.'},
+    cardio:'Nenhum cardio adicional. O JJ é o cardio desta semana.',
+    nutri:'Pico total. Estratégia de peso se necessário. Sono absoluto 9h.',
+    deload:false
+  },
+  // SEMANA 16 — DELOAD FINAL
+  { sem:16, fase:'Pico — Deload Final', deload:true,
+    academia:{
+      a:[
+        {nome:'Agachamento',series:2,reps:'5',descanso:90,dica:'40-50% 1RM — ativação pura',jj:'Ativação e manutenção'},
+        {nome:'Mobilidade total',series:1,reps:'15min',descanso:0,dica:'Quadril, torácica, ombros, tornozelo, pescoço',jj:'Prepara para competição'},
+      ],
+      b:[
+        {nome:'Supino Leve',series:2,reps:'8',descanso:75,dica:'40% — ativação',jj:'Ativação peito'},
+        {nome:'Remada Leve',series:2,reps:'8',descanso:75,dica:'40% — ativação',jj:'Ativação costas'},
+        {nome:'Barra Fixa',series:2,reps:'5',descanso:75,dica:'Peso corporal — fluido',jj:'Ativação'},
+      ],
+      c:[
+        {nome:'Ativação Global',series:1,reps:'20min',descanso:0,dica:'Band walks, hip circles, jump leve, throws leve — se sentir bem, mais. Mais bem disposto.',jj:'Ativação pré-competição'},
+      ]
+    },
+    jj:{intensidade:'Muito Leve',foco:'Drills técnicos leves. Sem sparring. Confiança e prazer. Visualização.'},
+    cardio:'Caminhada 15min + respiração. Recuperação total.',
+    nutri:'Carb loading se for competir. Sem mudanças drásticas. Come o que te faz bem.',
+  },
+];
+</script>
+
+
+<script>
+// ============================================================
+// APP STATE & STORAGE
+// ============================================================
+const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch(e) { return null; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
+
+const DEFAULT_PROFILE = { nome:'Atleta', faixa:'Azul', peso:70, altura:175, idade:30,
+  objetivo:'performance', apiKey:'', semana:1 };
+
+const S = {
+  tab: 'hoje',
+  profile: load('jj:p') || null,
+  sessions: load('jj:ss') || [],
+  assessments: load('jj:av') || {},
+  week: load('jj:sem') || 1,
+  iaSubTab: 'chat',
+  messages: load('jj:msg') || [],
+  simActive: false, simRound: 0, simTimer: null, simSeconds: 0,
+  pseRound: {},
+  daySelected: new Date().getDay(),
+  openSheet: null,
+  regPse: 5, regDur: 90, regTipo: 'JJ',
+  analyzeState: 0, analyzeUrl: '',
+  expandedDay: -1,
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function getBeltGradient(b) {
+  return ({
+    'Branca':'linear-gradient(90deg,#e8e8e8,#b8b8c8)',
+    'Azul':'linear-gradient(90deg,#3b82f6,#1d4ed8)',
+    'Roxa':'linear-gradient(90deg,#7c3aed,#5b21b6)',
+    'Marrom':'linear-gradient(90deg,#92400e,#78350f)',
+    'Preta':'linear-gradient(90deg,#1a1a2e,#08080e)',
+  })[b] || 'linear-gradient(90deg,#e8e8e8,#b8b8c8)';
+}
+
+function setBelt(b) {
+  document.documentElement.style.setProperty('--belt-grad', getBeltGradient(b));
+}
+
+function calcACWR() {
+  const loads = S.sessions.map(s => (s.pse||5) * (s.dur||60));
+  if (!loads.length) return { acwr: null, acute: 0, chronic: 0 };
+  const acute = loads.slice(-7).reduce((a,b)=>a+b,0)/7;
+  const chronic = loads.slice(-28).reduce((a,b)=>a+b,0)/28;
+  return { acwr: chronic>0 ? +(acute/chronic).toFixed(2) : null, acute, chronic };
+}
+
+function acwrColor(v) {
+  if (!v) return '#4a4a5a';
+  if (v < 0.8) return '#3b82f6';
+  if (v <= 1.3) return '#4ade80';
+  if (v <= 1.5) return '#fbbf24';
+  return '#f87171';
+}
+
+function acwrLabel(v) {
+  if (!v) return 'Sem dados suficientes';
+  if (v < 0.8) return 'Subcarga — Pode progredir';
+  if (v <= 1.3) return 'Zona segura — Continue';
+  if (v <= 1.5) return 'Atenção — Monitore fadiga';
+  return 'Alto risco — Reduza intensidade';
+}
+
+function calcFitScore() {
+  const a = S.assessments;
+  if (!Object.keys(a).length) return null;
+  let score = 0, count = 0;
+  const ref = {
+    cooper: [2000,2400,2800],
+    flexao: [20,30,40],
+    abdominal: [25,35,45],
+    salto: [30,40,50],
+    preensao: [40,50,60]
+  };
+  for (const [k,v] of Object.entries(ref)) {
+    const val = parseFloat(a[k]);
+    if (!isNaN(val)) {
+      const [poor,good,exc] = v;
+      let pts = val < poor ? 20 : val < good ? 50 : val < exc ? 75 : 95;
+      score += pts; count++;
+    }
+  }
+  return count > 0 ? Math.round(score/count) : null;
+}
+
+function fitScoreClass(s) {
+  if (s < 30) return 'Fraco';
+  if (s < 50) return 'Regular';
+  if (s < 70) return 'Bom';
+  if (s < 85) return 'Muito Bom';
+  return 'Excelente';
+}
+
+function dayOfWeekStr(d) {
+  return ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][d];
+}
+
+function todayType() {
+  const d = new Date().getDay();
+  // 0=Dom,1=Seg,2=Ter,3=Qua,4=Qui,5=Sex,6=Sáb
+  // Academia: Seg/Qua/Sex → A/B/C
+  // JJ: Ter/Qui/Sáb/Dom (4x semana)
+  if (d===0) return 'JJ';
+  if (d===1) return 'Academia A';
+  if (d===2) return 'JJ';
+  if (d===3) return 'Academia B';
+  if (d===4) return 'JJ';
+  if (d===5) return 'Academia C';
+  if (d===6) return 'JJ';
+  return 'Descanso';
+}
+
+function coachMessage() {
+  const sem = S.week;
+  const f = PERIODOS[sem-1] || PERIODOS[0];
+  const msgs = [
+    `Você está na <strong>semana ${sem} de 16</strong>, fase ${f.fase}. ${f.deload ? 'Semana de deload — recuperação é parte do treino.' : 'Mantenha a consistência — resultados vêm da soma dos dias.'}`,
+    `Foco de JJ esta semana: <strong>${f.jj.foco}</strong>. Treinos de academia potencializam o que você pratica no tatame.`,
+    `Lembre: ACWR ideal entre 0.8–1.3. Acima de 1.5 = risco de lesão. Registre suas sessões para monitorar.`,
+    `Nutrição: <strong>${f.nutri}</strong>`,
+    `${f.deload ? 'Semana de deload: menos é mais. O corpo adapta durante o descanso.' : 'Progressão gradual. Não tente fazer mais do que o programado — respeite o plano.'}`,
+  ];
+  return msgs[sem % msgs.length];
+}
+
+function weekDayType(dow) {
+  // dow: 0=Dom,1=Seg,...
+  if (dow===1) return {tipo:'Academia A', icon:'🏋️', color:'var(--gold)'};
+  if (dow===2) return {tipo:'JJ', icon:'🥋', color:'var(--ember)'};
+  if (dow===3) return {tipo:'Academia B', icon:'🏋️', color:'var(--gold)'};
+  if (dow===4) return {tipo:'JJ', icon:'🥋', color:'var(--ember)'};
+  if (dow===5) return {tipo:'Academia C', icon:'🏋️', color:'var(--gold)'};
+  if (dow===6) return {tipo:'JJ', icon:'🥋', color:'var(--ember)'};
+  return {tipo:'Descanso', icon:'—', color:'var(--text3)'};
+}
+
+function getWorkoutForDay(sem, dow) {
+  const p = PERIODOS[(sem-1) % PERIODOS.length];
+  if (dow===1) return {label:'Academia — Treino A', exs: p.academia.a, tipo:'academia'};
+  if (dow===3) return {label:'Academia — Treino B', exs: p.academia.b, tipo:'academia'};
+  if (dow===5) return {label:'Academia — Treino C', exs: p.academia.c, tipo:'academia'};
+  if ([2,4,6,0].includes(dow)) return {label:'Jiu-Jítsu', tipo:'jj', jj:p.jj, cardio:p.cardio};
+  return null;
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goTab(t) {
+  S.tab = t;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sc-'+t).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('nav-'+t).classList.add('active');
+  renderScreen(t);
+  window.scrollTo(0,0);
+}
+
+function renderScreen(t) {
+  if (t==='hoje') renderHoje();
+  else if (t==='treino') renderTreino();
+  else if (t==='evolucao') renderEvolucao();
+  else if (t==='comp') renderComp();
+  else if (t==='ia') renderIA();
+}
+
+// ============================================================
+// BOTTOM SHEET
+// ============================================================
+function openBottomSheet(id) {
+  closeAllSheets();
+  document.getElementById(id).classList.add('open');
+  document.getElementById('overlay').classList.add('active');
+  S.openSheet = id;
+  document.body.style.overflow = 'hidden';
+}
+function closeAllSheets() {
+  document.querySelectorAll('.bottom-sheet').forEach(s=>s.classList.remove('open'));
+  document.getElementById('overlay').classList.remove('active');
+  S.openSheet = null;
+  document.body.style.overflow = '';
+}
+
+// ============================================================
+// VIDEO MODAL
+// ============================================================
+const VIDEO_MAP = {
+  'agachamento':{ q:'squat técnica correta execução musculação'},
+  'leg press':{ q:'leg press execução técnica musculação'},
+  'deadlift':{ q:'terra deadlift técnica correta'},
+  'rdl':{ q:'RDL Romanian deadlift execução'},
+  'romeno':{ q:'terra romeno RDL execução técnica'},
+  'hip thrust':{ q:'hip thrust glúteo execução perfeita'},
+  'supino':{ q:'supino reto técnica execução halteres'},
+  'remada':{ q:'remada curvada execução técnica correta'},
+  'pulldown':{ q:'pulldown puxada frente execução técnica'},
+  'desenvolvimento':{ q:'desenvolvimento ombros dumbbell execução'},
+  'prancha':{ q:'prancha abdominal execução correta tempo'},
+  'flexão':{ q:'flexão de braço execução técnica push up'},
+  'abdominal':{ q:'abdominal supra execução correta forma'},
+  'cooper':{ q:'teste cooper 12 minutos como fazer'},
+  'salto':{ q:'salto vertical counter movement jump teste CMJ'},
+  'preensão':{ q:'teste preensão manual dinamômetro avaliação'},
+  'terra':{ q:'levantamento terra execução técnica barbell'},
+  'búlgaro':{ q:'agachamento búlgaro split squat execução'},
+  'kettlebell':{ q:'kettlebell swing execução técnica hip hinge'},
+  'swing':{ q:'kettlebell swing execução hip hinge potência'},
+  'nordic':{ q:'nordic curl execução técnica isquiotibiais'},
+  'box jump':{ q:'box jump execução técnica salto pliometria'},
+  'power clean':{ q:'power clean execução técnica olímpico'},
+  'rollout':{ q:'ab wheel rollout execução core avançado'},
+  'armbar':{ q:'armbar jujigatame técnica jiu-jitsu'},
+  'triângulo':{ q:'triângulo choke jiu jitsu técnica'},
+  'passagem':{ q:'passagem de guarda jiu jitsu técnica torreando'},
+};
+
+function openVideoRef(name) {
+  const key = name.toLowerCase();
+  const entry = Object.entries(VIDEO_MAP).find(([k]) => key.includes(k));
+  const q = entry ? entry[1].q : name + ' execução técnica correta musculação';
+  // YouTube embed com listType=search carrega vídeos de busca diretamente no iframe
+  const embedSrc = `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}&rel=0&playsinline=1&modestbranding=1`;
+  const ytSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgQIAxAB`;
+  document.getElementById('video-modal-content').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <h3 style="color:var(--text);font-size:17px;font-weight:700;margin:0 0 2px;">${name}</h3>
+        <p style="color:var(--text2);font-size:12px;margin:0;">Execução técnica correta</p>
+      </div>
+      <button onclick="closeAllSheets()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;">Fechar</button>
+    </div>
+    <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--r-md);overflow:hidden;background:#000;margin-bottom:12px;">
+      <iframe
+        id="vid-frame"
+        src="${embedSrc}"
+        style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+        loading="lazy"
+        onload="document.getElementById('vid-loading').style.display='none'"
+        onerror="document.getElementById('vid-fallback').style.display='flex'"
+      ></iframe>
+      <div id="vid-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--surface2);gap:8px;pointer-events:none;">
+        <div style="width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+        <p style="color:var(--text3);font-size:12px;margin:0;">Carregando vídeo...</p>
+      </div>
+      <div id="vid-fallback" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--surface2);gap:10px;padding:16px;text-align:center;">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <p style="color:var(--text2);font-size:13px;margin:0;">Vídeo não disponível aqui</p>
+      </div>
+    </div>
+    <a href="${ytSearch}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-weight:600;font-size:13px;padding:11px;border-radius:var(--r-md);text-decoration:none;width:100%;box-sizing:border-box;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
+      Ver mais vídeos no YouTube
+    </a>
+  `;
+  openBottomSheet('video-modal');
+}
+
+// ============================================================
+// REGISTER SESSION
+// ============================================================
+function openRegister() {
+  S.regPse=5; S.regDur=90; S.regTipo=todayType();
+  renderRegisterModal();
+  openBottomSheet('register-modal');
+}
+function renderRegisterModal() {
+  const tipos = ['JJ','Academia A','Academia B','Academia C','Cardio','Competição'];
+  document.getElementById('register-modal-content').innerHTML = `
+    <h3 style="color:var(--text);font-size:18px;margin-bottom:4px;">Registrar Sessão</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</p>
+    <div class="form-group"><label>Tipo de treino</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+        ${tipos.map(t=>`<button class="pse-chip ${S.regTipo===t?'sel':''}" onclick="S.regTipo='${t}';renderRegisterModal();">${t}</button>`).join('')}
+      </div>
+    </div>
+    <div class="form-group"><label>Duração (minutos)</label>
+      <input type="number" id="reg-dur" value="${S.regDur}" min="10" max="240" onchange="S.regDur=parseInt(this.value)||90" />
+    </div>
+    <div class="form-group"><label>PSE — Percepção Subjetiva de Esforço (1-10)</label>
+      <div class="pse-row">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pse-chip ${S.regPse===n?'sel':''}" onclick="S.regPse=${n};renderRegisterModal();">${n}</button>`).join('')}
+      </div>
+      <p style="font-size:11px;color:var(--text3);text-align:center;">${['','Muito leve','Leve','Moderado-leve','Moderado','Moderado+','Difícil','Muito difícil','Intenso','Muito intenso','Máximo'][S.regPse]}</p>
+    </div>
+    <button class="btn btn-gold btn-full" onclick="saveSession()">Salvar sessão</button>
+  `;
+}
+function saveSession() {
+  S.regDur = parseInt(document.getElementById('reg-dur').value)||90;
+  S.sessions.push({ data: new Date().toISOString(), pse: S.regPse, dur: S.regDur, tipo: S.regTipo });
+  save('jj:ss', S.sessions);
+  closeAllSheets();
+  renderScreen(S.tab);
+}
+
+// ============================================================
+// SCREEN: HOJE
+// ============================================================
+function renderHoje() {
+  const p = S.profile || DEFAULT_PROFILE;
+  const belt = getBeltGradient(p.faixa);
+  const { acwr } = calcACWR();
+  const acwrVal = acwr || '—';
+  const acwrC = acwrColor(acwr);
+  const acwrPct = acwr ? Math.min(acwr/2*100,100) : 0;
+  const hour = new Date().getHours();
+  const greeting = hour<12?'Bom dia':hour<18?'Boa tarde':'Boa noite';
+  const gmap = {0:'Bom dia',1:'Boa tarde',2:'Boa noite'};
+  const g = hour<12?'Bom dia':hour<18?'Boa tarde':'Boa noite';
+  const dayStr = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  const dow = new Date().getDay();
+  const wt = weekDayType(dow);
+  const p2 = PERIODOS[(S.week-1)%PERIODOS.length];
+  let todayCard = '';
+  if (wt.tipo !== 'Descanso') {
+    const wk = getWorkoutForDay(S.week, dow);
+    if (wk && wk.tipo==='academia') {
+      const first3 = (wk.exs||[]).slice(0,3);
+      todayCard = `
+        <div class="card" onclick="goTab('treino')">
+          <div style="height:2px;background:${belt};position:absolute;top:0;left:0;right:0;"></div>
+          <div class="card-inner">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--text);">${wk.label}</div>
+                <div style="font-size:12px;color:var(--text2);margin-top:2px;">Semana ${S.week} · ${p2.fase}</div>
+              </div>
+              <span class="badge badge-gold">Hoje</span>
+            </div>
+            ${first3.map(e=>`<div style="font-size:13px;color:var(--text2);padding:3px 0;display:flex;align-items:center;gap:6px;"><span style="color:var(--gold);font-weight:700;">·</span>${e.nome} <span style="color:var(--text3)">${e.series}×${e.reps}</span></div>`).join('')}
+            ${wk.exs.length>3?`<div style="font-size:12px;color:var(--text3);margin-top:6px;">+${wk.exs.length-3} exercícios · Toque para ver completo</div>`:''}
+            <div style="display:flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;color:var(--gold);">Ver treino completo <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+          </div>
+        </div>`;
+    } else if (wk && wk.tipo==='jj') {
+      todayCard = `
+        <div class="card">
+          <div style="height:2px;background:${belt};position:absolute;top:0;left:0;right:0;"></div>
+          <div class="card-inner">
+            <div class="flex items-center justify-between mb-8">
+              <div style="font-size:16px;font-weight:700;color:var(--text);">Jiu-Jítsu</div>
+              <span class="badge badge-ember">Hoje</span>
+            </div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:6px;"><strong style="color:var(--text);">Intensidade:</strong> ${wk.jj.intensidade}</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:10px;"><strong style="color:var(--text);">Foco:</strong> ${wk.jj.foco}</div>
+            <div style="font-size:12px;color:var(--gold);background:var(--gold-dim);border-radius:var(--r-sm);padding:8px 10px;">🏃 Cardio: ${p2.cardio.slice(0,80)}${p2.cardio.length>80?'...':''}</div>
+          </div>
+        </div>`;
+    }
+  } else {
+    todayCard = `<div class="card"><div class="card-inner"><div style="font-size:14px;color:var(--text2);text-align:center;padding:8px 0;">Descanso ativo — caminhada leve ou mobilidade.</div></div></div>`;
+  }
+
+  document.getElementById('sc-hoje').innerHTML = `
+    <div class="app-header">
+      <div class="app-logo">JJ<span>Performance</span></div>
+      <button class="icon-btn" onclick="goTab('ia')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="1.5"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 01-1 1H9a1 1 0 01-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/><path d="M9 21h6"/></svg>
+      </button>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:22px;font-weight:800;color:var(--text);">${g}, ${p.nome.split(' ')[0]}</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:8px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:${belt.match(/,([^,]+)\)$/)?.[1]?.trim()||'#3b82f6'};display:inline-block;"></span>
+        Faixa ${p.faixa} · Semana ${S.week}/16
+      </div>
+    </div>
+
+    <div class="section-label">Carga de Treino</div>
+    <div class="card">
+      <div style="height:2px;background:${belt};position:absolute;top:0;left:0;right:0;"></div>
+      <div class="card-inner">
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <div style="font-size:12px;color:var(--text2);">ACWR — Razão Carga Aguda/Crônica</div>
+            <div style="font-size:28px;font-weight:800;color:${acwrC};">${acwrVal}</div>
+          </div>
+          <div class="badge" style="background:${acwrC}20;color:${acwrC};border:1px solid ${acwrC}40;">
+            ${acwr && acwr<=1.3 && acwr>=0.8 ? '✓ Seguro' : acwr ? '⚠ Atenção' : '— Sem dados'}
+          </div>
+        </div>
+        <div class="acwr-bar-wrap">
+          <div class="acwr-bar-fill" style="width:${acwrPct}%;background:${acwrC};"></div>
+        </div>
+        <div class="acwr-zones">
+          <span>0</span><span style="color:#3b82f6;">0.8</span><span style="color:#4ade80;">1.3</span><span style="color:#fbbf24;">1.5</span><span>2.0</span>
+        </div>
+        <div style="font-size:12px;color:${acwrC};margin-top:6px;">${acwrLabel(acwr)}</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">HOJE — ${dayStr}</div>
+    ${todayCard}
+
+    <button class="btn btn-outline btn-full" onclick="openRegister()" style="margin-bottom:12px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Registrar Sessão de Hoje
+    </button>
+
+    <div class="section-label">Coach IA</div>
+    <div class="coach-card">
+      <div class="coach-avatar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 01-1 1H9a1 1 0 01-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/><path d="M9 21h6"/></svg>
+      </div>
+      <div>
+        <strong class="coach-text" style="color:var(--text);font-size:13px;font-weight:700;display:block;margin-bottom:4px;">Coach Virtual</strong>
+        <div class="coach-text">${coachMessage()}</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">Últimas Sessões</div>
+    ${S.sessions.length===0 ? `<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px 0;">Nenhuma sessão registrada ainda.</div>` :
+      S.sessions.slice(-3).reverse().map(s=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="width:40px;height:40px;border-radius:var(--r-sm);background:${s.tipo.includes('JJ')?'var(--ember-dim)':'var(--gold-dim)'};display:flex;align-items:center;justify-content:center;font-size:18px;">${s.tipo.includes('JJ')?'🥋':'🏋️'}</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${s.tipo}</div>
+            <div style="font-size:11px;color:var(--text2);">${new Date(s.data).toLocaleDateString('pt-BR')} · ${s.dur}min · PSE ${s.pse}</div>
+          </div>
+          <div style="font-size:16px;font-weight:800;color:var(--gold);">${(s.pse*s.dur)}</div>
+        </div>
+      `).join('')
+    }
+  `;
+}
+
+// ============================================================
+// SCREEN: TREINO
+// ============================================================
+function renderTreino() {
+  const p2 = PERIODOS[(S.week-1)%PERIODOS.length];
+  const pct = Math.round((S.week-1)/16*100);
+  const days = [1,2,3,4,5,6,0]; // Mon..Sun
+  const dayLetters = ['S','T','Q','Q','S','S','D'];
+  const today = new Date().getDay();
+
+  let dayStripHTML = days.map((d,i)=>{
+    const wt = weekDayType(d);
+    const isToday = d===today;
+    const isSelected = S.daySelected===d;
+    return `<button class="day-btn ${isSelected?'active':''}" onclick="selectDay(${d})">
+      <span class="day-letter" style="${isToday?'color:var(--gold);':''}">${dayLetters[i]}</span>
+      <span style="font-size:16px;">${wt.icon}</span>
+      <span class="day-dot" style="${isSelected?'background:var(--gold)':''}"></span>
+    </button>`;
+  }).join('');
+
+  const wk = getWorkoutForDay(S.week, S.daySelected);
+  let workoutHTML = '';
+
+  if (!wk) {
+    workoutHTML = `<div style="text-align:center;padding:24px;color:var(--text3);">Dia de descanso ativo.<br><span style="font-size:12px;">Mobilidade, caminhada ou recuperação.</span></div>`;
+  } else if (wk.tipo==='jj') {
+    workoutHTML = `
+      <div class="card">
+        <div style="height:2px;background:var(--ember);position:absolute;top:0;left:0;right:0;"></div>
+        <div class="card-inner">
+          <div class="card-title">Jiu-Jítsu — ${dayOfWeekStr(S.daySelected)}</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <span class="badge badge-ember">${wk.jj.intensidade}</span>
+          </div>
+          <div class="section-label">Foco da Semana</div>
+          <div style="font-size:14px;color:var(--text);margin-bottom:12px;">${wk.jj.foco}</div>
+          <div class="divider"></div>
+          <div class="section-label">Cardio Complementar</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6;">${wk.cardio}</div>
+          <div class="divider"></div>
+          <div class="section-label">Nutrição do Dia</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6;">${p2.nutri}</div>
+        </div>
+      </div>`;
+  } else {
+    const exs = wk.exs || [];
+    workoutHTML = `
+      <div class="card">
+        <div style="height:2px;background:var(--belt-grad,linear-gradient(90deg,#3b82f6,#1d4ed8));position:absolute;top:0;left:0;right:0;"></div>
+        <div class="card-inner">
+          <div class="card-title">${wk.label}</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">Aquecimento 5min — Mobilidade articular, ativação glúteo e rotator cuff</div>
+          <div class="divider"></div>
+          ${exs.map((e,i)=>`
+            <div class="ex-row">
+              <div class="ex-num">${i+1}</div>
+              <div class="ex-main">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                  <div class="ex-name">${e.nome}</div>
+                  <button class="btn-video" onclick="openVideoRef('${e.nome.replace(/'/g,'').replace(/"/g,'')}')">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>ver
+                  </button>
+                </div>
+                <div class="ex-meta">
+                  <span class="ex-tag">${e.series}×${e.reps}</span>
+                  <span class="ex-tag">⏱ ${e.descanso}s</span>
+                </div>
+                <div class="ex-tip">${e.dica}</div>
+                <div class="ex-jj">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  ${e.jj}
+                </div>
+              </div>
+            </div>`).join('')}
+          <div class="divider"></div>
+          <div style="font-size:12px;color:var(--text3);">Resfriamento 5min — Alongamento quadril + isquiotibiais</div>
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('sc-treino').innerHTML = `
+    <div class="app-header">
+      <div class="app-logo">JJ<span>Performance</span></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="icon-btn" onclick="S.week=Math.max(1,S.week-1);save('jj:sem',S.week);renderTreino();">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span style="font-size:13px;font-weight:700;min-width:60px;text-align:center;">Sem ${S.week}/16</span>
+        <button class="icon-btn" onclick="S.week=Math.min(16,S.week+1);save('jj:sem',S.week);renderTreino();">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    </div>
+    ${p2.deload ? `<div class="deload-banner"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10z"/><path d="M12 8v4M12 16h.01"/></svg>Semana de Deload — Volume reduzido 40%. Recuperação é treino.</div>` : ''}
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);">Fase: ${p2.fase}</div>
+        <div style="font-size:12px;color:var(--text2);">${pct}%</div>
+      </div>
+      <div class="prog-bar-wrap"><div class="prog-bar-fill" style="width:${pct}%;"></div></div>
+    </div>
+    <div class="day-strip">${dayStripHTML}</div>
+    ${workoutHTML}
+  `;
+}
+
+function selectDay(d) {
+  S.daySelected = d;
+  renderTreino();
+}
+
+// ============================================================
+// SCREEN: EVOLUÇÃO
+// ============================================================
+function renderEvolucao() {
+  const fitScore = calcFitScore();
+  const { acwr, acute, chronic } = calcACWR();
+  const p = S.profile || DEFAULT_PROFILE;
+  const fcmax = 220 - (p.idade||30);
+  const zones = [
+    {name:'Z1 Recuper.', pct:[50,60], color:'#3b82f6'},
+    {name:'Z2 Base Aer.', pct:[60,70], color:'#4ade80'},
+    {name:'Z3 Limiar', pct:[70,80], color:'#fbbf24'},
+    {name:'Z4 Anaeróbio', pct:[80,90], color:'#e55a2b'},
+    {name:'Z5 Máxima', pct:[90,100], color:'#f87171'},
+  ];
+
+  const assessTests = [
+    {id:'cooper', name:'Teste de Cooper', unit:'metros', desc:'Corra o máximo em 12 minutos. Registre a distância total em metros.', ref:[{label:'Fraco',val:'<2000',cls:'poor'},{label:'Regular',val:'2000-2399',cls:'reg'},{label:'Bom',val:'2400-2799',cls:'good'},{label:'Excelente',val:'>2800',cls:'exc'}], max:3200},
+    {id:'flexao', name:'Flexão de Braço (1min)', unit:'reps', desc:'Máximo de repetições de flexão completas em 1 minuto.', ref:[{label:'Fraco',val:'<20',cls:'poor'},{label:'Regular',val:'20-29',cls:'reg'},{label:'Bom',val:'30-39',cls:'good'},{label:'Excelente',val:'>40',cls:'exc'}], max:60},
+    {id:'abdominal', name:'Abdominal Supra (1min)', unit:'reps', desc:'Máximo de abdominais completos em 1 minuto.', ref:[{label:'Fraco',val:'<25',cls:'poor'},{label:'Regular',val:'25-34',cls:'reg'},{label:'Bom',val:'35-44',cls:'good'},{label:'Excelente',val:'>45',cls:'exc'}], max:70},
+    {id:'salto', name:'Salto Vertical (CMJ)', unit:'cm', desc:'Salto máximo — mede a diferença entre alcance parado e no ar.', ref:[{label:'Fraco',val:'<30',cls:'poor'},{label:'Regular',val:'30-39',cls:'reg'},{label:'Bom',val:'40-49',cls:'good'},{label:'Excelente',val:'>50',cls:'exc'}], max:80},
+    {id:'preensao', name:'Preensão Manual', unit:'kgf', desc:'Dinamômetro ou teste de aperto. Use a mão dominante.', ref:[{label:'Fraco',val:'<40',cls:'poor'},{label:'Regular',val:'40-49',cls:'reg'},{label:'Bom',val:'50-59',cls:'good'},{label:'Excelente',val:'>60',cls:'exc'}], max:80},
+  ];
+
+  // Build ACWR chart data
+  const last28 = [];
+  const now = new Date();
+  for (let i=27;i>=0;i--) {
+    const d = new Date(now); d.setDate(d.getDate()-i);
+    const ds = d.toISOString().slice(0,10);
+    const dayLoad = S.sessions.filter(s=>s.data.slice(0,10)===ds).reduce((a,s)=>a+(s.pse||5)*(s.dur||60),0);
+    last28.push({label: d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}), load: dayLoad});
+  }
+
+  // SVG ring
+  const score = fitScore || 0;
+  const r = 80, cx = 100, cy = 100;
+  const circ = 2*Math.PI*r;
+  const offset = circ - (score/100)*circ;
+  const scoreColor = score < 40 ? '#f87171' : score < 60 ? '#fbbf24' : score < 80 ? '#4ade80' : '#c8a96e';
+
+  document.getElementById('sc-evolucao').innerHTML = `
+    <div class="app-header">
+      <div class="app-logo">JJ<span>Performance</span></div>
+    </div>
+
+    <div class="section-label">Score de Condicionamento</div>
+    <div class="card">
+      <div class="card-inner" style="display:flex;align-items:center;gap:16px;">
+        <svg width="120" height="120" viewBox="0 0 200 200">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="16"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${scoreColor}" stroke-width="16"
+            stroke-dasharray="${circ}" stroke-dashoffset="${fitScore?offset:circ}"
+            stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})" style="transition:stroke-dashoffset 1s ease;"/>
+          <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="38" font-weight="800" fill="var(--text)" font-family="Plus Jakarta Sans">${fitScore||'—'}</text>
+          <text x="${cx}" y="${cy+28}" text-anchor="middle" font-size="13" fill="var(--text2)" font-family="Plus Jakarta Sans">${fitScore?fitScoreClass(fitScore):'Avaliar'}</text>
+        </svg>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px;">Fitness Score BJJ</div>
+          ${assessTests.map(t=>{
+            const v = parseFloat(S.assessments[t.id]);
+            const pct = isNaN(v)?0:Math.min(v/t.max*100,100);
+            return `<div style="margin-bottom:6px;">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:2px;">
+                <span>${t.name.split(' ')[0]}</span>
+                <span style="color:var(--text)">${isNaN(v)?'—':v+' '+t.unit}</span>
+              </div>
+              <div class="result-bar-wrap"><div class="result-bar" style="width:${pct}%;background:${scoreColor};"></div></div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">Carga Semanal (ACWR)</div>
+    <div class="card">
+      <div class="card-inner">
+        <canvas id="acwrChart" height="140"></canvas>
+      </div>
+    </div>
+
+    <div class="section-label">Avaliação Física</div>
+    ${assessTests.map(t=>`
+      <div class="card">
+        <div class="card-inner">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+            <div>
+              <div style="font-weight:700;font-size:14px;">${t.name}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px;">${t.desc}</div>
+            </div>
+            <button class="btn-video" onclick="openVideoRef('${t.id}')">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>ver
+            </button>
+          </div>
+          <div class="assess-ref">
+            ${t.ref.map(r=>`<div class="assess-col ${r.cls}"><div class="val">${r.val}</div>${r.label}</div>`).join('')}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+            <input type="number" placeholder="Resultado (${t.unit})" value="${S.assessments[t.id]||''}"
+              onchange="S.assessments['${t.id}']=this.value;save('jj:av',S.assessments);renderEvolucao();"
+              style="flex:1;" />
+            ${S.assessments[t.id]?`<span class="badge badge-gold">${S.assessments[t.id]} ${t.unit}</span>`:''}
+          </div>
+        </div>
+      </div>
+    `).join('')}
+
+    <div class="section-label">Monitor Cardíaco Polar H10</div>
+    <div class="card">
+      <div class="card-inner">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="width:44px;height:44px;border-radius:var(--r-md);background:var(--gold-dim);border:1px solid var(--border-glow);display:flex;align-items:center;justify-content:center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">Monitor Cardíaco Polar H10</div>
+            <div style="font-size:12px;color:var(--text2);">Como usar para monitorar zonas de treino</div>
+          </div>
+        </div>
+        <div>
+          ${[
+            {n:1,title:'Baixe o Polar Beat',text:'App gratuito (iOS/Android). Conecte seu H10 por Bluetooth antes de treinar.'},
+            {n:2,title:'Inicie a sessão no app',text:'Selecione "Running" ou "Functional Training". O app detecta automaticamente o H10.'},
+            {n:3,title:'Monitore as zonas ao vivo',text:'Durante o treino, veja sua FC em tempo real e a distribuição entre zonas.'},
+            {n:4,title:'Veja o resumo pós-treino',text:'Após finalizar, confira o tempo em cada zona no Polar Flow (app ou site).'},
+            {n:5,title:'Registre aqui a PSE',text:'Anote o tempo em Z3+Z4 como referência de intensidade. Registre a PSE neste app.'},
+          ].map(s=>`<div class="polar-step">
+            <div class="polar-step-num">${s.n}</div>
+            <div class="polar-step-body"><strong>${s.title}</strong><p>${s.text}</p></div>
+          </div>`).join('')}
+        </div>
+        <div class="divider"></div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px;">Suas Zonas (FC estimada)</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">FCmáx = 220 − ${p.idade||30} = <strong style="color:var(--text);">${fcmax} bpm</strong></div>
+        ${zones.map(z=>`<div class="zone-row">
+          <div class="zone-color" style="background:${z.color};"></div>
+          <div class="zone-name">${z.name}</div>
+          <div style="flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;">
+            <div style="width:${z.pct[1]-z.pct[0]}%;height:100%;background:${z.color};margin-left:${z.pct[0]}%;"></div>
+          </div>
+          <div class="zone-range">${Math.round(fcmax*z.pct[0]/100)}–${Math.round(fcmax*z.pct[1]/100)}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  // Draw chart after DOM is set
+  setTimeout(()=>{
+    const ctx = document.getElementById('acwrChart');
+    if (!ctx) return;
+    if (window._acwrChart) window._acwrChart.destroy();
+    window._acwrChart = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: last28.map(d=>d.label),
+        datasets:[{
+          label:'Carga (AU)',
+          data: last28.map(d=>d.load),
+          backgroundColor: last28.map(d=>d.load>0?'rgba(200,169,110,0.5)':'rgba(74,74,90,0.2)'),
+          borderColor: 'rgba(200,169,110,0.8)',
+          borderWidth:1,
+          borderRadius:4,
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} AU`}}},
+        scales:{
+          x:{ticks:{color:'#4a4a5a',font:{size:9},maxTicksLimit:7},grid:{color:'rgba(255,255,255,0.03)'}},
+          y:{ticks:{color:'#4a4a5a',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'},beginAtZero:true}
+        }
+      }
+    });
+  },100);
+}
+
+// ============================================================
+// SCREEN: COMPETIÇÃO
+// ============================================================
+function renderComp() {
+  const p = S.profile || DEFAULT_PROFILE;
+  const peso = parseFloat(p.peso)||70;
+  const meses = Math.max(0, Math.ceil((67-peso)/0.4));
+  const cats = [
+    {name:'Galo/Rooster',range:'≤57.5 kg'},
+    {name:'Pluma/Light Feather',range:'57.5–64 kg'},
+    {name:'Pena/Feather',range:'64–70 kg',target:true},
+    {name:'Leve/Light',range:'70–76 kg'},
+    {name:'Médio/Middle',range:'76–82.3 kg'},
+    {name:'Meio-Pesado/MH',range:'82.3–88.3 kg'},
+    {name:'Pesado/Heavy',range:'88.3–94.3 kg'},
+    {name:'Super-Pesado/SH',range:'94.3–100.5 kg'},
+    {name:'Pesadíssimo/UH',range:'>100.5 kg'},
+  ];
+  const roundSec = 5*60;
+  const restSec = 80;
+
+  document.getElementById('sc-comp').innerHTML = `
+    <div class="app-header">
+      <div class="app-logo">JJ<span>Performance</span></div>
+    </div>
+
+    <div class="section-label">Categorias IBJJF / CBJJO</div>
+    <div class="card">
+      <div class="card-inner">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div>
+            <div style="font-size:22px;font-weight:800;">${peso} kg</div>
+            <div style="font-size:12px;color:var(--text2);">Peso atual</div>
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <div>
+            <div style="font-size:22px;font-weight:800;color:var(--gold);">66–70 kg</div>
+            <div style="font-size:12px;color:var(--gold);">Categoria Pena</div>
+          </div>
+        </div>
+        ${meses>0?`<div class="badge badge-gold" style="margin-bottom:10px;">Meta em ${meses} meses (+0.4kg/mês de massa)</div>`:'<div class="badge badge-green" style="margin-bottom:10px;">Já na categoria alvo</div>'}
+        ${cats.map(c=>`<div class="cat-row ${c.target?'target':''}">
+          <div class="cat-name" style="${c.target?'color:var(--gold);':''}">${c.name}</div>
+          <div class="cat-range">${c.range}</div>
+          ${c.target?'<span class="badge badge-gold">Alvo</span>':''}
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="section-label">Simulação de Luta</div>
+    <div class="card" id="sim-card">
+      <div class="card-inner" style="text-align:center;">
+        <div id="sim-content">${renderSimContent()}</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">Estratégia de Competição</div>
+    <div class="card">
+      <div class="card-inner">
+        <div style="font-size:13px;color:var(--text2);line-height:1.8;">
+          <div style="margin-bottom:8px;"><strong style="color:var(--text);">Peso absoluto:</strong> Participe do absoluto para ganhar experiência extra contra oponentes maiores. Use sua mobilidade e técnica.</div>
+          <div style="margin-bottom:8px;"><strong style="color:var(--text);">Estratégia de pontos:</strong> Trabalhe para takedowns e passagens de guarda — 4pts cada. Guard pull como recurso, não primeira opção.</div>
+          <div style="margin-bottom:8px;"><strong style="color:var(--text);">Condicionamento:</strong> Rounds de 5min exigem manutenção de intensidade. Treine rounds completos sem pausa.</div>
+          <div><strong style="color:var(--text);">Mental:</strong> Pré-competição: visualização positiva, foco no processo, não no resultado.</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSimContent() {
+  if (!S.simActive && S.simRound===0) {
+    return `
+      <div style="padding:16px 0;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1" style="opacity:.4;margin-bottom:12px;">
+          <circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="var(--gold)" stroke="none"/>
+        </svg>
+        <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Simulação de Luta</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">6 rounds × 5min | 1:20s descanso</div>
+        <button class="btn btn-gold" onclick="startSim()">Iniciar Simulação</button>
+      </div>`;
+  }
+  const done = S.pseRound;
+  const roundDots = Array.from({length:6},(_,i)=>{
+    const cls = i<S.simRound-1?'done':i===S.simRound-1&&S.simActive?'active':'';
+    return `<div class="round-dot ${cls}"></div>`;
+  }).join('');
+  const sec = S.simSeconds;
+  const mm = String(Math.floor(sec/60)).padStart(2,'0');
+  const ss = String(sec%60).padStart(2,'0');
+  const isRest = S.simPhase==='rest';
+  return `
+    <div class="round-dots">${roundDots}</div>
+    <div style="font-size:13px;color:${isRest?'var(--text3)':'var(--gold)'};font-weight:700;margin-bottom:4px;">
+      ${isRest?`DESCANSO — Round ${S.simRound+1} em breve`:`Round ${S.simRound} / 6`}
+    </div>
+    <div class="timer-display">${mm}:${ss}</div>
+    <div style="font-size:13px;color:var(--text2);margin:8px 0;">
+      ${isRest?'Respire, hidrate-se':'Mantenha a intensidade — PSE ao final'}
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;">
+      <button class="btn btn-outline" onclick="toggleSim()">${S.simActive?'Pausar':'Retomar'}</button>
+      <button class="btn" style="background:var(--ember-dim);color:var(--ember);border:1px solid rgba(229,90,43,.2);" onclick="stopSim()">Parar</button>
+    </div>
+    ${!isRest && S.simRound>0 && !S.simActive ? `
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;">PSE do Round ${S.simRound}</div>
+        <div class="pse-grid">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pse-btn ${S.pseRound[S.simRound]===n?'selected':''}" onclick="setPseRound(${n})">${n}</button>`).join('')}
+        </div>
+      </div>` : ''}
+    ${Object.keys(done).length>0?`<div style="margin-top:8px;font-size:12px;color:var(--text2);">Rounds: ${Object.entries(done).map(([r,v])=>`R${r}:${v}`).join(' · ')}</div>`:''}
+  `;
+}
+
+let simInterval = null;
+function startSim() {
+  S.simRound=1; S.simActive=true; S.simSeconds=5*60; S.simPhase='round'; S.pseRound={};
+  simInterval = setInterval(simTick, 1000);
+  updateSimUI();
+}
+function toggleSim() {
+  S.simActive = !S.simActive;
+  if (S.simActive) simInterval = setInterval(simTick, 1000);
+  else { clearInterval(simInterval); simInterval=null; }
+  updateSimUI();
+}
+function stopSim() {
+  clearInterval(simInterval); simInterval=null;
+  S.simActive=false; S.simRound=0; S.simSeconds=0; S.simPhase='';
+  updateSimUI();
+}
+function setPseRound(n) {
+  S.pseRound[S.simRound]=n;
+  S.sessions.push({data:new Date().toISOString(),pse:n,dur:5,tipo:'Competição Round '+S.simRound});
+  save('jj:ss',S.sessions);
+  // continue to next round
+  S.simRound++; S.simPhase='rest'; S.simSeconds=80; S.simActive=true;
+  simInterval = setInterval(simTick,1000);
+  updateSimUI();
+}
+function simTick() {
+  if (!S.simActive) return;
+  S.simSeconds--;
+  if (S.simSeconds<=0) {
+    if (S.simPhase==='round') {
+      clearInterval(simInterval); simInterval=null;
+      S.simActive=false;
+      S.simPhase='pse';
+    } else if (S.simPhase==='rest') {
+      if (S.simRound>6) { stopSim(); return; }
+      S.simPhase='round'; S.simSeconds=5*60;
+    }
+  }
+  updateSimUI();
+}
+function updateSimUI() {
+  const sc = document.getElementById('sim-content');
+  if (sc) sc.innerHTML = renderSimContent();
+}
+
+// ============================================================
+// SCREEN: IA
+// ============================================================
+function renderIA() {
+  document.getElementById('sc-ia').innerHTML = `
+    <div class="app-header">
+      <div class="app-logo">JJ<span>Performance</span></div>
+    </div>
+    <div class="seg-ctrl">
+      <button class="seg-btn ${S.iaSubTab==='chat'?'active':''}" onclick="setIATab('chat')">Chat</button>
+      <button class="seg-btn ${S.iaSubTab==='video'?'active':''}" onclick="setIATab('video')">Análise de Vídeo</button>
+      <button class="seg-btn ${S.iaSubTab==='config'?'active':''}" onclick="setIATab('config')">Configurações</button>
+    </div>
+    <div id="ia-sub-content">${renderIASub()}</div>
+  `;
+}
+
+function setIATab(t) {
+  S.iaSubTab=t;
+  const el = document.getElementById('ia-sub-content');
+  if (el) el.innerHTML = renderIASub();
+}
+
+function renderIASub() {
+  if (S.iaSubTab==='chat') return renderChat();
+  if (S.iaSubTab==='video') return renderVideoAnalysis();
+  return renderIAConfig();
+}
+
+function renderChat() {
+  return `
+    <div class="chat-wrap" id="chat-messages">
+      ${S.messages.length===0?`<div class="msg-ai">Olá! Sou seu coach de JJ${(S.profile||{}).apiKey?'':' local (grátis, funciona offline)'}, com base em evidências científicas e nos seus dados registrados. Posso comentar sua carga (ACWR), sono/recuperação, nutrição, técnica, prontidão para competir ou motivação. Pergunte algo como "como está minha carga essa semana?"</div>`:''}
+      ${S.messages.map(m=>`<div class="${m.role==='user'?'msg-user':'msg-ai'}">${m.content}</div>`).join('')}
+      <div id="chat-thinking" style="display:none;" class="msg-thinking">
+        <div class="dot-pulse"></div><div class="dot-pulse"></div><div class="dot-pulse"></div>
+      </div>
+    </div>
+    <div class="chat-input-row" style="position:sticky;bottom:100px;">
+      <input id="chat-input" placeholder="Pergunta sobre treino, JJ, nutrição..." onkeydown="if(event.key==='Enter')sendChat();" />
+      <button class="chat-send" onclick="sendChat()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function renderVideoAnalysis() {
+  const states = [
+    'Acessando informações do vídeo...',
+    'Identificando técnicas de JJ...',
+    'Gerando plano de treino...',
+    'Finalizando análise...'
+  ];
+  return `
+    <div style="text-align:center;padding:16px 0 8px;">
+      <div style="width:56px;height:56px;border-radius:var(--r-lg);background:var(--gold-dim);border:1px solid var(--border-glow);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M15 10l4.553-2.069A1 1 0 0121 8.871v6.258a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      </div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Análise Técnica de Lutas</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Cole a URL de uma luta no YouTube para identificar técnicas e gerar plano de treino</div>
+    </div>
+    <div class="form-group">
+      <label>URL do Vídeo (YouTube)</label>
+      <input id="video-url" type="url" placeholder="https://youtube.com/watch?v=..." value="${S.analyzeUrl}" onchange="S.analyzeUrl=this.value;" />
+    </div>
+    <button class="btn btn-gold btn-full" onclick="analyzeVideo()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Analisar Vídeo
+    </button>
+    <div id="analysis-result" style="margin-top:16px;">${renderAnalysisResult()}</div>
+    <p style="font-size:11px;color:var(--text3);text-align:center;margin-top:10px;">${(S.profile||{}).apiKey ? 'IA online configurada — a análise tenta identificar o conteúdo do vídeo.' : 'Modo local gratuito: sem chave de API não dá para "ver" o vídeo, então você recebe um plano de estudo de técnicas baseado na sua semana e fase atual do programa.'}</p>
+  `;
+}
+
+function renderAnalysisResult() {
+  if (!S.analyzeResult) return '';
+  return `<div class="card"><div class="card-inner"><div style="font-size:14px;color:var(--text);line-height:1.7;white-space:pre-wrap;">${S.analyzeResult}</div></div></div>`;
+}
+
+function renderIAConfig() {
+  const p = S.profile || DEFAULT_PROFILE;
+  const online = !!p.apiKey;
+  return `
+    <div class="card">
+      <div class="card-inner">
+        <div class="form-group">
+          <label>Modo da IA</label>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--r-md);background:${online?'var(--gold-dim)':'var(--glass)'};border:1px solid ${online?'var(--border-glow)':'var(--border)'};">
+            <span style="width:8px;height:8px;border-radius:50%;background:${online?'var(--gold)':'var(--green)'};flex-shrink:0;"></span>
+            <span style="font-size:13px;color:var(--text);">${online?'Online (chave Anthropic configurada)':'Local — grátis e funciona offline'}</span>
+          </div>
+        </div>
+        <div class="form-group"><label>Chave API Anthropic (opcional)</label>
+          <input id="cfg-api" type="password" value="${p.apiKey||''}" placeholder="sk-ant-... (deixe vazio para usar a IA local)" />
+          <p style="font-size:11px;color:var(--text3);margin-top:4px;">Sem chave, o coach IA usa regras locais baseadas nos seus treinos registrados — grátis, privado e offline. Colar uma chave Anthropic é opcional e ativa respostas geradas por IA online. Fica somente no seu dispositivo.</p>
+        </div>
+        <div class="form-group"><label>Nome</label><input id="cfg-nome" value="${p.nome||''}" /></div>
+        <div class="grid-2">
+          <div class="form-group"><label>Faixa</label>
+            <select id="cfg-faixa">
+              ${['Branca','Azul','Roxa','Marrom','Preta'].map(b=>`<option ${p.faixa===b?'selected':''}>${b}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Peso (kg)</label><input id="cfg-peso" type="number" value="${p.peso||70}" /></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Altura (cm)</label><input id="cfg-altura" type="number" value="${p.altura||175}" /></div>
+          <div class="form-group"><label>Idade</label><input id="cfg-idade" type="number" value="${p.idade||30}" /></div>
+        </div>
+        <button class="btn btn-gold btn-full" onclick="saveConfig()">Salvar</button>
+      </div>
+    </div>
+  `;
+}
+
+function saveConfig() {
+  const p = S.profile || { ...DEFAULT_PROFILE };
+  p.apiKey = document.getElementById('cfg-api').value;
+  p.nome = document.getElementById('cfg-nome').value;
+  p.faixa = document.getElementById('cfg-faixa').value;
+  p.peso = parseFloat(document.getElementById('cfg-peso').value)||70;
+  p.altura = parseFloat(document.getElementById('cfg-altura').value)||175;
+  p.idade = parseInt(document.getElementById('cfg-idade').value)||30;
+  S.profile = p;
+  save('jj:p', p);
+  setBelt(p.faixa);
+  renderIA();
+}
+
+// ============================================================
+// AI API
+// ============================================================
+function buildSystem() {
+  const p = S.profile || DEFAULT_PROFILE;
+  return `Você é um coach especialista em jiu-jítsu e preparação física baseada em evidências científicas. Responda SEMPRE em português brasileiro. Seja direto, prático e específico para jiu-jítsu. Dados do atleta: ${p.nome}, faixa ${p.faixa}, ${p.peso}kg, ${p.altura}cm, ${p.idade} anos, objetivo: ${p.objetivo}. Semana atual: ${S.week} de 16 (fase: ${(PERIODOS[(S.week-1)%16]||{}).fase}). ACWR: ${calcACWR().acwr||'sem dados'}. Use referências científicas quando relevante. Seja motivador mas realista.`;
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  S.messages.push({role:'user',content:text});
+  save('jj:msg', S.messages);
+  const sub = document.getElementById('ia-sub-content');
+  if (sub) sub.innerHTML = renderIASub();
+  const thinking = document.getElementById('chat-thinking');
+  if (thinking) thinking.style.display='flex';
+  // scroll to bottom
+  const msgs = document.getElementById('chat-messages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+
+  const reply = await callAI(S.messages.map(m=>({role:m.role,content:m.content})));
+  if (thinking) thinking.style.display='none';
+  S.messages.push({role:'assistant',content:reply});
+  save('jj:msg', S.messages);
+  if (sub) sub.innerHTML = renderIASub();
+  setTimeout(()=>{ const m=document.getElementById('chat-messages'); if(m) m.scrollTop=m.scrollHeight; },50);
+}
+
+async function analyzeVideo() {
+  S.analyzeUrl = document.getElementById('video-url')?.value || '';
+  if (!S.analyzeUrl) return alert('Cole uma URL de vídeo.');
+  S.analyzeResult = 'Analisando...';
+  const sub = document.getElementById('ia-sub-content');
+  if (sub) sub.innerHTML = renderIASub();
+  const prompt = `Analise este vídeo de JJ (ou luta) da URL: ${S.analyzeUrl}
+
+Por favor:
+1. Tente identificar o atleta/luta baseado na URL ou contexto disponível
+2. Liste 5-8 técnicas de jiu-jítsu relevantes para estudar baseado no contexto (ex: se for luta de alto nível, quais técnicas deveriam estar no plano?)
+3. Gere um plano de treino de 3 dias focado nas técnicas identificadas
+4. Sugira drills específicos para cada técnica
+
+Formato: seja estruturado e prático. Foque em transferência para o treinamento.`;
+  const key = (S.profile||{}).apiKey;
+  const reply = key ? await callAI([{role:'user',content:prompt}]) : localVideoPlan();
+  S.analyzeResult = reply;
+  if (sub) sub.innerHTML = renderIASub();
+}
+
+// ============================================================
+// AI LOCAL (regras baseadas nos dados do app — grátis, offline, sem chave)
+// ============================================================
+function localCoachReply(text) {
+  const t = (text||'').toLowerCase();
+  const sem = S.week;
+  const fase = PERIODOS[(sem-1)%PERIODOS.length] || PERIODOS[0];
+  const { acwr } = calcACWR();
+  const fitScore = calcFitScore();
+
+  if (/carga|acwr|fadiga|cansad|overtrain|les[aã]o/.test(t)) {
+    if (acwr == null) return 'Ainda não tenho sessões suficientes registradas para calcular seu ACWR (carga aguda/crônica). Registre seus treinos na aba Hoje para eu acompanhar sua carga.';
+    return `Seu ACWR atual é <strong>${acwr}</strong> — ${acwrLabel(acwr)}. A faixa ideal é 0.8–1.3; acima de 1.5 o risco de lesão sobe bastante. ${fase.deload ? 'Você está numa semana de deload, então reduzir o volume agora é esperado e recomendado.' : 'Continue registrando suas sessões para eu acompanhar a tendência.'}`;
+  }
+  if (/sono|dormi|recupera|descans/.test(t)) {
+    return `Na fase atual (<strong>${fase.fase}</strong>, semana ${sem}/16), a orientação de recuperação é: ${fase.nutri} ${fase.deload ? 'Essa é uma semana de deload — priorize sono e descanso ativo.' : ''}`;
+  }
+  if (/nutri|aliment|dieta|com(er|ida)|prote[ií]na|carbo/.test(t)) {
+    return `Nutrição recomendada para a semana ${sem} (${fase.fase}): ${fase.nutri}`;
+  }
+  if (/t[eé]cnic|guarda|passagem|finaliza|chave|tri[aâ]ngulo|raspagem/.test(t)) {
+    return `O foco técnico desta semana é: <strong>${fase.jj.foco}</strong> (intensidade ${fase.jj.intensidade}). Aproveite os treinos de JJ (Ter/Qui/Sáb/Dom) para repetir essas posições com atenção aos detalhes.`;
+  }
+  if (/compet|campeonato|torneio|pront/.test(t)) {
+    const scoreTxt = fitScore!=null ? `Seu índice físico atual é ${fitScore}/100 (${fitScoreClass(fitScore)}).` : 'Você ainda não registrou os testes físicos na aba Evolução — faça-os para eu avaliar sua prontidão.';
+    const acwrTxt = acwr!=null ? `Sua carga (ACWR ${acwr}) está em: ${acwrLabel(acwr).toLowerCase()}.` : '';
+    return `${scoreTxt} ${acwrTxt} Você está na semana ${sem}/16 do programa — ${sem>12 ? 'fase final, ajuste o pico para a competição.' : 'ainda há tempo para construir base antes de picos de competição.'}`;
+  }
+  if (/motiva|desanima|desist|ansio/.test(t)) {
+    return 'A consistência vale mais que a intensidade de um dia só. Cada treino, mesmo os ruins, soma na sua evolução de faixa. Confie no processo de 16 semanas e celebre as pequenas vitórias no tatame.';
+  }
+  return `Sou o coach local (grátis, offline) — baseio minhas respostas nos seus dados registrados e na ciência do treinamento. Posso comentar sua <strong>carga/ACWR</strong>, <strong>sono/recuperação</strong>, <strong>nutrição</strong>, <strong>foco técnico</strong> da semana ou sua <strong>prontidão para competir</strong>. Pergunte sobre um desses temas — ou configure uma chave Anthropic nas Configurações para respostas mais livres.`;
+}
+
+function localVideoPlan() {
+  const sem = S.week;
+  const fase = PERIODOS[(sem-1)%PERIODOS.length] || PERIODOS[0];
+  return `Modo local (sem chave de API): não consigo "assistir" o vídeo, mas aqui está um plano de estudo baseado na sua semana atual (${sem}/16, fase ${fase.fase}):
+
+<strong>Foco técnico da semana:</strong> ${fase.jj.foco}
+
+<strong>Plano de treino de 3 dias:</strong><br>
+Dia 1 — Drill posicional: 5x2min no foco da semana (${fase.jj.foco}), intensidade ${fase.jj.intensidade}.<br>
+Dia 2 — Situação de luta iniciando na posição trabalhada, 5 rounds de 4min.<br>
+Dia 3 — Revisão com parceiro: ensine a posição a alguém (consolidação) + 3 rounds livres aplicando o detalhe.
+
+<strong>Dica:</strong> grave seus próprios rounds e compare com o vídeo de referência — observe entradas, grips e timing. Para análise automática do conteúdo do vídeo, configure uma chave Anthropic nas Configurações.`;
+}
+
+async function callAI(messages) {
+  const key = (S.profile||{}).apiKey;
+  if (!key) return localCoachReply(messages[messages.length-1]?.content || '');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'content-type':'application/json',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1024,
+        system: buildSystem(),
+        messages
+      })
+    });
+    const data = await res.json();
+    if (data.error) return `Erro API: ${data.error.message}`;
+    return data.content?.find(c=>c.type==='text')?.text || 'Sem resposta.';
+  } catch(e) {
+    return `Erro de conexão: ${e.message}`;
+  }
+}
+
+// ============================================================
+// PROFILE SETUP
+// ============================================================
+function saveProfile() {
+  const nome = document.getElementById('p-nome')?.value?.trim() || 'Atleta';
+  const idade = parseInt(document.getElementById('p-idade')?.value) || 30;
+  const peso = parseFloat(document.getElementById('p-peso')?.value) || 70;
+  const altura = parseFloat(document.getElementById('p-altura')?.value) || 175;
+  const faixa = document.getElementById('p-faixa')?.value || 'Azul';
+  const objetivo = document.getElementById('p-obj')?.value || 'performance';
+  const apiKey = document.getElementById('p-api')?.value || '';
+  S.profile = { nome, idade, peso, altura, faixa, objetivo, apiKey };
+  save('jj:p', S.profile);
+  setBelt(faixa);
+  document.getElementById('profile-modal').style.display = 'none';
+  goTab('hoje');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', ()=>{
+  if (!S.profile) {
+    document.getElementById('profile-modal').style.display = 'flex';
+  } else {
+    setBelt(S.profile.faixa);
+    goTab('hoje');
+  }
+});
+
+// ============================================================
+// PWA — registro do service worker (cache offline)
+// ============================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+
+</body>
+</html>

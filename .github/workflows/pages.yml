@@ -1,0 +1,41 @@
+# Publica a raiz do repositório em GitHub Pages a cada push em main.
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Tenta habilitar Pages se ainda não existir. O GITHUB_TOKEN padrão
+          # não consegue criar o site (precisa de outro token com administração).
+          # Sem secrets neste repo, o dono habilita uma vez em
+          # Settings > Pages > Source = GitHub Actions.
+          enablement: true
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
