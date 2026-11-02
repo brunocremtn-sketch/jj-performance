@@ -322,6 +322,10 @@ select option{background:var(--surface2);}
     <div class="sheet-handle"></div>
     <div id="register-modal-content"></div>
   </div>
+  <div id="import-modal" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div id="import-modal-content"></div>
+  </div>
   <div id="overlay" class="overlay" onclick="closeAllSheets()"></div>
 
   <!-- PROFILE SETUP MODAL -->
@@ -354,14 +358,7 @@ select option{background:var(--surface2);}
           </select>
         </div>
       </div>
-      <div class="form-group"><label>Objetivo principal</label>
-        <select id="p-obj">
-          <option value="performance">Performance e evolução no JJ</option>
-          <option value="competicao">Competição</option>
-          <option value="condicionamento">Condicionamento físico</option>
-          <option value="saude">Saúde e longevidade</option>
-        </select>
-      </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">Seu currículo de técnicas (De La Riva, X-guard, knee cut...) e os dias de treino já vêm com um padrão — edite depois em IA → Configurações.</p>
       <div class="form-group"><label>Chave API Anthropic (opcional)</label>
         <input id="p-api" type="password" placeholder="sk-ant-... (deixe vazio para usar a IA local gratuita)" />
         <p style="font-size:11px;color:var(--text3);margin-top:4px;">O coach IA já funciona 100% grátis e offline, com dicas baseadas nos seus dados. Colar uma chave Anthropic é opcional e ativa respostas geradas por IA online. Seus dados ficam apenas no seu dispositivo.</p>
@@ -872,10 +869,25 @@ const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } cat
 const DEFAULT_PROFILE = { nome:'Atleta', faixa:'Azul', peso:70, altura:175, idade:30,
   objetivo:'performance', apiKey:'', semana:1 };
 
+// Dias de JJ editáveis (padrão seg/qua/sex); força preenche os demais dias — ver getJjDays()/getDayPlan().
+const DEFAULT_JJ_DAYS = [1,3,5];
+const DEFAULT_CURRICULO = ['De La Riva','X-guard','Knee cut','Passagem de meia-guarda','Retenção de guarda','Recuperação de guarda'];
+// Ordem Seg→Dom, usada para distribuir os dias de força de forma estável.
+const WEEK_ORDER = [1,2,3,4,5,6,0];
+
+// Novos campos (jjDays, curriculo) recebem default aqui sem jamais sobrescrever o que já existe no perfil salvo.
+function ensureProfileDefaults(p) {
+  if (!p) return p;
+  if (!Array.isArray(p.jjDays) || !p.jjDays.length) p.jjDays = DEFAULT_JJ_DAYS.slice();
+  if (!Array.isArray(p.curriculo) || !p.curriculo.length) p.curriculo = DEFAULT_CURRICULO.slice();
+  return p;
+}
+
 const S = {
   tab: 'hoje',
-  profile: load('jj:p') || null,
-  sessions: load('jj:ss') || [],
+  profile: ensureProfileDefaults(load('jj:p')) || null,
+  sessions: (load('jj:ss') || []).map(s => ensureSessionDefaults(s)),
+  importedIds: load('jj:imp') || [],
   assessments: load('jj:av') || {},
   week: load('jj:sem') || 1,
   iaSubTab: 'chat',
@@ -884,14 +896,37 @@ const S = {
   pseRound: {},
   daySelected: new Date().getDay(),
   openSheet: null,
-  regPse: 5, regDur: 90, regTipo: 'JJ',
+  regStep: 0,
+  regPse: 5, regDur: 90, regTipo: 'JJ', regTecnica:'', regRolas:[], regFuncionou:'', regTravou:'', regDor:'', regSono:'', regEnergia:'', regTags:[],
   analyzeState: 0, analyzeUrl: '',
   expandedDay: -1,
+  pendingImport: null,
+  voice: { active:false, step:0, data:null },
 };
 
 // ============================================================
 // HELPERS
 // ============================================================
+// Escapa texto vindo do usuário (digitado, por voz ou importado) antes de injetar em innerHTML — evita XSS.
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Sessões antigas (sem os campos novos) continuam válidas; os campos novos nascem com default vazio.
+function ensureSessionDefaults(s) {
+  if (!s) return s;
+  if (!Array.isArray(s.rolas)) s.rolas = [];
+  if (!Array.isArray(s.curriculoTags)) s.curriculoTags = [];
+  if (typeof s.tecnica !== 'string') s.tecnica = '';
+  if (typeof s.funcionou !== 'string') s.funcionou = '';
+  if (typeof s.travou !== 'string') s.travou = '';
+  if (typeof s.dor !== 'string') s.dor = '';
+  if (typeof s.sono !== 'string') s.sono = '';
+  if (typeof s.energia !== 'string') s.energia = '';
+  return s;
+}
+
 function getBeltGradient(b) {
   return ({
     'Branca':'linear-gradient(90deg,#e8e8e8,#b8b8c8)',
@@ -964,19 +999,33 @@ function dayOfWeekStr(d) {
   return ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][d];
 }
 
+function getJjDays() {
+  const p = S.profile || DEFAULT_PROFILE;
+  return (Array.isArray(p.jjDays) && p.jjDays.length) ? p.jjDays : DEFAULT_JJ_DAYS;
+}
+
+function jjDaysLabel() {
+  return WEEK_ORDER.filter(d => getJjDays().includes(d)).map(dayOfWeekStr).join('/');
+}
+
+function forcaDaysLabel() {
+  return WEEK_ORDER.filter(d => !getJjDays().includes(d)).map(dayOfWeekStr).join('/');
+}
+
+// Fonte única de verdade para qual tipo de treino cai em cada dia da semana.
+// JJ nos dias escolhidos pelo usuário (padrão seg/qua/sex); força preenche automaticamente os demais dias,
+// alternando os treinos A/B/C na ordem Seg→Dom.
+function getDayPlan(dow) {
+  const jjDays = getJjDays();
+  if (jjDays.includes(dow)) return { tipo:'jj' };
+  const forcaDays = WEEK_ORDER.filter(d => !jjDays.includes(d));
+  const idx = forcaDays.indexOf(dow);
+  const letra = ['A','B','C'][idx % 3];
+  return { tipo:'academia', letra };
+}
+
 function todayType() {
-  const d = new Date().getDay();
-  // 0=Dom,1=Seg,2=Ter,3=Qua,4=Qui,5=Sex,6=Sáb
-  // Academia: Seg/Qua/Sex → A/B/C
-  // JJ: Ter/Qui/Sáb/Dom (4x semana)
-  if (d===0) return 'JJ';
-  if (d===1) return 'Academia A';
-  if (d===2) return 'JJ';
-  if (d===3) return 'Academia B';
-  if (d===4) return 'JJ';
-  if (d===5) return 'Academia C';
-  if (d===6) return 'JJ';
-  return 'Descanso';
+  return weekDayType(new Date().getDay()).tipo;
 }
 
 function coachMessage() {
@@ -994,22 +1043,17 @@ function coachMessage() {
 
 function weekDayType(dow) {
   // dow: 0=Dom,1=Seg,...
-  if (dow===1) return {tipo:'Academia A', icon:'🏋️', color:'var(--gold)'};
-  if (dow===2) return {tipo:'JJ', icon:'🥋', color:'var(--ember)'};
-  if (dow===3) return {tipo:'Academia B', icon:'🏋️', color:'var(--gold)'};
-  if (dow===4) return {tipo:'JJ', icon:'🥋', color:'var(--ember)'};
-  if (dow===5) return {tipo:'Academia C', icon:'🏋️', color:'var(--gold)'};
-  if (dow===6) return {tipo:'JJ', icon:'🥋', color:'var(--ember)'};
-  return {tipo:'Descanso', icon:'—', color:'var(--text3)'};
+  const plan = getDayPlan(dow);
+  if (plan.tipo==='jj') return {tipo:'JJ', icon:'🥋', color:'var(--ember)'};
+  return {tipo:'Academia '+plan.letra, icon:'🏋️', color:'var(--gold)'};
 }
 
 function getWorkoutForDay(sem, dow) {
   const p = PERIODOS[(sem-1) % PERIODOS.length];
-  if (dow===1) return {label:'Academia — Treino A', exs: p.academia.a, tipo:'academia'};
-  if (dow===3) return {label:'Academia — Treino B', exs: p.academia.b, tipo:'academia'};
-  if (dow===5) return {label:'Academia — Treino C', exs: p.academia.c, tipo:'academia'};
-  if ([2,4,6,0].includes(dow)) return {label:'Jiu-Jítsu', tipo:'jj', jj:p.jj, cardio:p.cardio};
-  return null;
+  const plan = getDayPlan(dow);
+  if (plan.tipo==='jj') return {label:'Jiu-Jítsu', tipo:'jj', jj:p.jj, cardio:p.cardio};
+  const chave = plan.letra.toLowerCase();
+  return {label:'Academia — Treino '+plan.letra, exs: p.academia[chave], tipo:'academia'};
 }
 
 // ============================================================
@@ -1127,41 +1171,487 @@ function openVideoRef(name) {
 }
 
 // ============================================================
-// REGISTER SESSION
+// REGISTER SESSION — formulário (passo 0) + reflexão pós-treino (passo 1)
+// Mesma ordem de campos usada pelo diálogo por voz (ver VOICE REGISTER), para os dois ficarem consistentes.
 // ============================================================
+const TIPOS_TREINO = ['JJ','Academia A','Academia B','Academia C','Cardio','Competição'];
+
 function openRegister() {
+  S.regStep = 0;
   S.regPse=5; S.regDur=90; S.regTipo=todayType();
+  S.regTecnica=''; S.regRolas=[]; S.regFuncionou=''; S.regTravou=''; S.regDor=''; S.regSono=''; S.regEnergia=''; S.regTags=[];
   renderRegisterModal();
   openBottomSheet('register-modal');
 }
+
 function renderRegisterModal() {
-  const tipos = ['JJ','Academia A','Academia B','Academia C','Cardio','Competição'];
+  if (S.regStep === 1) return renderPosTreino();
   document.getElementById('register-modal-content').innerHTML = `
     <h3 style="color:var(--text);font-size:18px;margin-bottom:4px;">Registrar Sessão</h3>
     <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</p>
     <div class="form-group"><label>Tipo de treino</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
-        ${tipos.map(t=>`<button class="pse-chip ${S.regTipo===t?'sel':''}" onclick="S.regTipo='${t}';renderRegisterModal();">${t}</button>`).join('')}
+        ${TIPOS_TREINO.map(t=>`<button class="pse-chip ${S.regTipo===t?'sel':''}" onclick="S.regTipo='${t}';renderRegisterModal();">${t}</button>`).join('')}
       </div>
     </div>
     <div class="form-group"><label>Duração (minutos)</label>
-      <input type="number" id="reg-dur" value="${S.regDur}" min="10" max="240" onchange="S.regDur=parseInt(this.value)||90" />
+      <input type="number" id="reg-dur" value="${S.regDur}" min="10" max="240" oninput="S.regDur=parseInt(this.value)||90" />
     </div>
-    <div class="form-group"><label>PSE — Percepção Subjetiva de Esforço (1-10)</label>
+    <div class="form-group"><label>PSE — Percepção Subjetiva de Esforço (0-10)</label>
       <div class="pse-row">
-        ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pse-chip ${S.regPse===n?'sel':''}" onclick="S.regPse=${n};renderRegisterModal();">${n}</button>`).join('')}
+        ${[0,1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pse-chip ${S.regPse===n?'sel':''}" onclick="S.regPse=${n};renderRegisterModal();">${n}</button>`).join('')}
       </div>
-      <p style="font-size:11px;color:var(--text3);text-align:center;">${['','Muito leve','Leve','Moderado-leve','Moderado','Moderado+','Difícil','Muito difícil','Intenso','Muito intenso','Máximo'][S.regPse]}</p>
+      <p style="font-size:11px;color:var(--text3);text-align:center;">${['Nenhum esforço','Muito, muito leve','Muito leve','Leve','Moderado-leve','Moderado','Moderado+','Difícil','Muito difícil','Intenso','Máximo'][S.regPse]}</p>
+    </div>
+    <div class="form-group"><label>Técnica treinada ${micBtn('reg-tecnica')}</label>
+      <input id="reg-tecnica" placeholder="ex: ouchi gari, raspagem de laço, knee cut..." value="${esc(S.regTecnica)}" oninput="S.regTecnica=this.value;" />
+    </div>
+    <div class="form-group"><label>Rolas (parceiro, faixa/peso)</label>
+      <div id="reg-rolas">${renderRolasInputs()}</div>
+      <button class="btn btn-outline btn-full" style="margin-top:6px;" onclick="addRegRola()">+ Adicionar rola</button>
+    </div>
+    <div class="form-group"><label>O que funcionou? ${micBtn('reg-funcionou')}</label>
+      <textarea id="reg-funcionou" rows="2" placeholder="ex: retenção de guarda, raspagem de laço" oninput="S.regFuncionou=this.value;">${esc(S.regFuncionou)}</textarea>
+    </div>
+    <div class="form-group"><label>Onde você travou? ${micBtn('reg-travou')}</label>
+      <textarea id="reg-travou" rows="2" placeholder="ex: passagem de meia-guarda" oninput="S.regTravou=this.value;">${esc(S.regTravou)}</textarea>
+    </div>
+    <div class="form-group"><label>Dor ou lesão? ${micBtn('reg-dor')}</label>
+      <input id="reg-dor" placeholder="ex: nenhuma" value="${esc(S.regDor)}" oninput="S.regDor=this.value;" />
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label>Sono</label><input id="reg-sono" placeholder="ex: bom, 7h" value="${esc(S.regSono)}" oninput="S.regSono=this.value;" /></div>
+      <div class="form-group"><label>Energia</label><input id="reg-energia" placeholder="ex: alta" value="${esc(S.regEnergia)}" oninput="S.regEnergia=this.value;" /></div>
     </div>
     <button class="btn btn-gold btn-full" onclick="saveSession()">Salvar sessão</button>
   `;
 }
+
+function renderRolasInputs() {
+  if (!S.regRolas.length) return `<p style="font-size:12px;color:var(--text3);">Nenhum rola adicionado ainda.</p>`;
+  return S.regRolas.map((r,i)=>`
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-start;">
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+        <input placeholder="Parceiro" value="${esc(r.parceiro)}" oninput="S.regRolas[${i}].parceiro=this.value;" />
+        <input placeholder="Faixa / peso" value="${esc(r.faixaPeso)}" oninput="S.regRolas[${i}].faixaPeso=this.value;" />
+        <div style="display:flex;gap:4px;">
+          <input id="rola-detalhe-${i}" placeholder="Detalhes (o que rolou)" value="${esc(r.detalhe)}" oninput="S.regRolas[${i}].detalhe=this.value;" style="flex:1;" />
+          ${micBtn('rola-detalhe-'+i)}
+        </div>
+      </div>
+      <button class="icon-btn" onclick="removeRegRola(${i})" title="Remover" style="flex-shrink:0;">×</button>
+    </div>
+  `).join('');
+}
+
+function addRegRola() {
+  S.regRolas.push({ parceiro:'', faixaPeso:'', detalhe:'' });
+  document.getElementById('reg-rolas').innerHTML = renderRolasInputs();
+}
+function removeRegRola(i) {
+  S.regRolas.splice(i,1);
+  document.getElementById('reg-rolas').innerHTML = renderRolasInputs();
+}
+
 function saveSession() {
   S.regDur = parseInt(document.getElementById('reg-dur').value)||90;
-  S.sessions.push({ data: new Date().toISOString(), pse: S.regPse, dur: S.regDur, tipo: S.regTipo });
+  S.regTecnica = document.getElementById('reg-tecnica')?.value || S.regTecnica;
+  S.regFuncionou = document.getElementById('reg-funcionou')?.value || S.regFuncionou;
+  S.regTravou = document.getElementById('reg-travou')?.value || S.regTravou;
+  S.regDor = document.getElementById('reg-dor')?.value || S.regDor;
+  S.regSono = document.getElementById('reg-sono')?.value || S.regSono;
+  S.regEnergia = document.getElementById('reg-energia')?.value || S.regEnergia;
+  const session = ensureSessionDefaults({
+    data: new Date().toISOString(),
+    pse: S.regPse, dur: S.regDur, tipo: S.regTipo,
+    tecnica: S.regTecnica, rolas: S.regRolas.slice(),
+    funcionou: S.regFuncionou, travou: S.regTravou,
+    dor: S.regDor, sono: S.regSono, energia: S.regEnergia,
+    curriculoTags: inferCurriculoTags(S.regTecnica+' '+S.regFuncionou+' '+S.regTravou+' '+S.regRolas.map(r=>r.detalhe).join(' ')),
+  });
+  S.sessions.push(session);
   save('jj:ss', S.sessions);
-  closeAllSheets();
+  S.regTags = session.curriculoTags.slice();
+  S.lastSession = session;
+  S.regStep = 1;
+  renderRegisterModal();
   renderScreen(S.tab);
+}
+
+// ============================================================
+// PÓS-TREINO — perguntas curtas depois de salvar (currículo) + sugestão baseada no histórico
+// ============================================================
+function renderPosTreino() {
+  const curriculo = getCurriculo();
+  document.getElementById('register-modal-content').innerHTML = `
+    <h3 style="color:var(--text);font-size:18px;margin-bottom:4px;">Sessão salva ✓</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">Rapidinho: qual item do seu currículo apareceu nesse treino?</p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+      ${curriculo.map((item,i)=>`<button class="pse-chip ${S.regTags.includes(item)?'sel':''}" onclick="togglePosTreinoTag(${i})">${esc(item)}</button>`).join('')}
+    </div>
+    <button class="btn btn-gold btn-full" onclick="finalizarPosTreino()">Concluir</button>
+    <div id="pos-treino-sugestao"></div>
+  `;
+}
+
+function togglePosTreinoTag(curriculoIndex) {
+  const item = getCurriculo()[curriculoIndex];
+  if (item == null) return;
+  const i = S.regTags.indexOf(item);
+  if (i>=0) S.regTags.splice(i,1); else S.regTags.push(item);
+  renderRegisterModal();
+}
+
+function finalizarPosTreino() {
+  if (S.lastSession) {
+    S.lastSession.curriculoTags = S.regTags.slice();
+    save('jj:ss', S.sessions);
+  }
+  const sugestao = generateSuggestion();
+  document.getElementById('pos-treino-sugestao').innerHTML = `
+    <div class="coach-card" style="margin-top:12px;">
+      <div class="coach-avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 01-1 1H9a1 1 0 01-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/><path d="M9 21h6"/></svg></div>
+      <div><strong class="coach-text" style="color:var(--text);">Sugestão para os próximos rolas</strong><div class="coach-text">${sugestao}</div></div>
+    </div>
+    <button class="btn btn-outline btn-full" style="margin-top:10px;" onclick="closeAllSheets();renderScreen(S.tab);">Fechar</button>
+  `;
+}
+
+// Marca no texto quais itens do currículo foram mencionados — usado para pré-selecionar tags e para importação.
+function inferCurriculoTags(texto) {
+  const t = (texto||'').toLowerCase();
+  return getCurriculo().filter(item => t.includes(item.toLowerCase()));
+}
+
+// Sugestão simples baseada no histórico: cruza "onde travou" recorrente com itens do currículo pouco vistos.
+function generateSuggestion() {
+  const recentes = S.sessions.slice(-10);
+  if (recentes.length < 2) return 'Continue registrando seus treinos — a partir de algumas sessões eu começo a identificar padrões e sugerir foco.';
+  const travous = recentes.map(s=>s.travou).filter(Boolean);
+  const curriculo = getCurriculo();
+  const contagem = {};
+  curriculo.forEach(item=>contagem[item]=0);
+  recentes.forEach(s => (s.curriculoTags||[]).forEach(tag => { if (tag in contagem) contagem[tag]++; }));
+  const menosTreinados = curriculo.filter(item=>contagem[item]===0);
+  const partes = [];
+  if (travous.length) {
+    const ultimaTravada = travous[travous.length-1];
+    partes.push(`Você tem travado em "<strong>${esc(ultimaTravada)}</strong>" — vale um extra de drill nessa posição antes do próximo treino de JJ.`);
+  }
+  if (menosTreinados.length) {
+    partes.push(`Itens do currículo que não apareceram nas últimas sessões: <strong>${menosTreinados.map(esc).join(', ')}</strong>. Bom foco para os próximos rolas.`);
+  }
+  if (!partes.length) partes.push('Seu currículo está bem distribuído nas últimas sessões — continue variando os parceiros para testar os detalhes sob pressão.');
+  return partes.join(' ');
+}
+
+// ============================================================
+// VOICE REGISTER — diálogo guiado por voz, grátis, 100% no navegador
+// (speechSynthesis para perguntar, SpeechRecognition/webkitSpeechRecognition para ouvir)
+// ============================================================
+function supportsVoice() {
+  return !!(window.speechSynthesis && (window.SpeechRecognition || window.webkitSpeechRecognition));
+}
+
+// Pequeno botão de microfone reaproveitável em qualquer campo de texto (ditado pontual, sem diálogo guiado).
+function micBtn(targetId) {
+  return `<button type="button" onclick="micFill('${targetId}')" title="Preencher por voz" style="background:var(--gold-dim);border:1px solid var(--border-glow);color:var(--gold);border-radius:999px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;vertical-align:middle;margin-left:4px;">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4"/></svg>
+  </button>`;
+}
+
+async function micFill(targetId) {
+  if (!supportsVoice()) { alert('Seu navegador não suporta ditado por voz. Pode digitar normalmente.'); return; }
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  try {
+    const texto = await listenOnce(6000);
+    el.value = (el.value ? el.value.trim() + ' ' : '') + texto;
+    el.dispatchEvent(new Event('input'));
+    el.dispatchEvent(new Event('change'));
+  } catch(e) { /* usuário pode digitar normalmente — falha silenciosa e graciosa */ }
+}
+
+function speak(text) {
+  return new Promise(resolve => {
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'pt-BR';
+      u.onend = () => resolve();
+      u.onerror = () => resolve();
+      window.speechSynthesis.speak(u);
+    } catch(e) { resolve(); }
+  });
+}
+
+function listenOnce(timeoutMs=8000) {
+  return new Promise((resolve, reject) => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { reject(new Error('sem reconhecimento de voz')); return; }
+    const rec = new SR();
+    rec.lang = 'pt-BR';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      try { rec.stop(); } catch(e) {}
+      reject(new Error('tempo esgotado'));
+    }, timeoutMs);
+    rec.onresult = (ev) => {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      resolve((ev.results[0][0].transcript || '').trim());
+    };
+    rec.onerror = (ev) => {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      reject(new Error(ev.error || 'erro de reconhecimento'));
+    };
+    rec.onend = () => {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      reject(new Error('sem fala detectada'));
+    };
+    try { rec.start(); } catch(e) { clearTimeout(timer); reject(e); }
+  });
+}
+
+async function askText(pergunta) {
+  await speak(pergunta);
+  try { return await listenOnce(); } catch(e) { return ''; }
+}
+
+async function askNumber(pergunta, min, max) {
+  const txt = await askText(pergunta);
+  const m = txt.match(/\d+/);
+  if (!m) return null;
+  return Math.max(min, Math.min(max, parseInt(m[0], 10)));
+}
+
+async function askYesNo(pergunta) {
+  const txt = (await askText(pergunta)).toLowerCase();
+  if (!txt) return false;
+  if (/\bn[aã]o\b/.test(txt)) return false;
+  return /\b(sim|mais|quero|pode)\b/.test(txt);
+}
+
+function resumoFala() {
+  const rolasTxt = S.regRolas.length ? `${S.regRolas.length} rola${S.regRolas.length>1?'s':''} registrado${S.regRolas.length>1?'s':''}` : 'nenhum rola';
+  return `Resumo: ${S.regTipo}, ${S.regDur} minutos, PSE ${S.regPse}. Técnica: ${S.regTecnica || 'não informada'}. ${rolasTxt}. Funcionou: ${S.regFuncionou || 'não informado'}. Travou: ${S.regTravou || 'não informado'}.`;
+}
+
+async function startVoiceRegister() {
+  if (S.voice.active) return;
+  if (!supportsVoice()) {
+    alert('Seu navegador não suporta o diálogo por voz (precisa de reconhecimento de voz, disponível no Chrome/Edge no Android e no desktop). Você pode preencher o formulário digitando normalmente.');
+    openRegister();
+    return;
+  }
+  openRegister();
+  S.voice.active = true;
+  try {
+    await speak('Vamos registrar seu treino por voz. Responda depois de cada pergunta.');
+    const dur = await askNumber('Quantos minutos durou o treino?', 5, 240);
+    if (dur != null) S.regDur = dur;
+    const pse = await askNumber('Qual foi o PSE, de zero a dez?', 0, 10);
+    if (pse != null) S.regPse = pse;
+    S.regTecnica = (await askText('Quais técnicas você treinou hoje?')) || S.regTecnica;
+    let mais = await askYesNo('Quer registrar um rola? diga sim ou não.');
+    let seguranca = 0;
+    while (mais && seguranca < 10) {
+      seguranca++;
+      const parceiro = await askText('Diga o nome do parceiro, ou diga pular.');
+      const faixaPeso = await askText('Qual a faixa e o peso dele?');
+      const detalhe = await askText('O que aconteceu nesse rola?');
+      S.regRolas.push({ parceiro: /pular/i.test(parceiro) ? '' : parceiro, faixaPeso, detalhe });
+      document.getElementById('reg-rolas') && (document.getElementById('reg-rolas').innerHTML = renderRolasInputs());
+      mais = await askYesNo('Mais um rola?');
+    }
+    S.regFuncionou = (await askText('O que funcionou no treino?')) || S.regFuncionou;
+    S.regTravou = (await askText('Onde você travou?')) || S.regTravou;
+    S.regDor = (await askText('Sentiu alguma dor ou lesão? Diga nenhuma se não sentiu nada.')) || S.regDor;
+    S.regSono = (await askText('Como estava seu sono?')) || S.regSono;
+    S.regEnergia = (await askText('Como estava sua energia?')) || S.regEnergia;
+    renderRegisterModal();
+    await speak(resumoFala() + ' Diga confirmar para salvar, ou corrigir para revisar na tela antes de salvar.');
+    let resp = '';
+    try { resp = await listenOnce(); } catch(e) {}
+    S.voice.active = false;
+    if (/confirm/i.test(resp)) {
+      saveSession();
+      speak('Treino salvo. Bom treino!');
+    } else {
+      await speak('Tudo bem. Os campos estão na tela — revise e toque em salvar sessão quando estiver certo.');
+    }
+  } catch (e) {
+    S.voice.active = false;
+    speak('Não consegui ouvir direito. Pode preencher o restante digitando na tela.');
+  }
+}
+
+// ============================================================
+// IMPORTAR TREINO — colar JSON/texto, ou link ?import=/#import= (base64url)
+// Validação estrita, pré-visualização e confirmação antes de salvar; não duplica se já importado.
+// ============================================================
+function b64urlDecode(str) {
+  let s = str.replace(/-/g,'+').replace(/_/g,'/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  let bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+function b64urlEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+// Valida e normaliza o payload importado. Aceita {session:{...}, importId} ou o objeto da sessão direto.
+// Tudo passa por clamp de tamanho/tipo — nada é injetado em innerHTML sem validação ou sem esc().
+function validateImportPayload(raw) {
+  let obj;
+  try { obj = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) { return { ok:false, erro:'JSON inválido — confira se o texto colado está completo.' }; }
+  if (!obj || typeof obj !== 'object') return { ok:false, erro:'Formato inválido: esperado um objeto JSON.' };
+  const s = (obj.session && typeof obj.session==='object') ? obj.session : obj;
+
+  if (typeof s.tipo !== 'string' || !s.tipo.trim()) return { ok:false, erro:'Campo "tipo" ausente ou inválido.' };
+  const dur = Number(s.dur);
+  if (!Number.isFinite(dur) || dur<=0 || dur>600) return { ok:false, erro:'Campo "dur" (minutos) inválido — use 1 a 600.' };
+  const pse = Number(s.pse);
+  if (!Number.isFinite(pse) || pse<0 || pse>10) return { ok:false, erro:'Campo "pse" inválido — use 0 a 10.' };
+  const dataVal = s.data ? new Date(s.data) : null;
+  if (!dataVal || isNaN(dataVal.getTime())) return { ok:false, erro:'Campo "data" inválido ou ausente (use um formato ISO, ex: 2026-10-28T19:00:00).' };
+  if (!Array.isArray(s.rolas ?? []) ) return { ok:false, erro:'Campo "rolas" deve ser uma lista.' };
+
+  const rolas = (s.rolas||[]).filter(r=>r && typeof r==='object').slice(0,30).map(r=>({
+    parceiro: String(r.parceiro||'').slice(0,200),
+    faixaPeso: String(r.faixaPeso||'').slice(0,200),
+    esforco: String(r.esforco||'').slice(0,100),
+    detalhe: String(r.detalhe||'').slice(0,500),
+  }));
+
+  const tecnica = String(s.tecnica||'').slice(0,500);
+  const funcionou = String(s.funcionou||'').slice(0,500);
+  const travou = String(s.travou||'').slice(0,500);
+  const textoParaTags = [tecnica, funcionou, travou, ...rolas.map(r=>r.detalhe)].join(' ');
+
+  const session = ensureSessionDefaults({
+    data: dataVal.toISOString(),
+    tipo: String(s.tipo).slice(0,60),
+    dur, pse, tecnica, funcionou, travou,
+    rolas,
+    dor: String(s.dor||'').slice(0,200),
+    sono: String(s.sono||'').slice(0,100),
+    energia: String(s.energia||'').slice(0,100),
+    curriculoTags: Array.isArray(s.curriculoTags) && s.curriculoTags.length
+      ? s.curriculoTags.filter(t=>typeof t==='string').slice(0,30)
+      : inferCurriculoTags(textoParaTags),
+  });
+  if (s.pesoAtleta != null && Number.isFinite(Number(s.pesoAtleta))) session.pesoAtleta = Number(s.pesoAtleta);
+
+  const importId = String(obj.importId || s.importId || ('auto:'+session.data+':'+session.tipo+':'+dur+':'+pse)).slice(0,120);
+  return { ok:true, session, importId };
+}
+
+function isAlreadyImported(importId) {
+  return S.importedIds.includes(importId) || S.sessions.some(s=>s.importId===importId);
+}
+
+function openImportModal() {
+  S.pendingImport = null;
+  renderImportModal();
+  openBottomSheet('import-modal');
+}
+
+function renderImportModal() {
+  const content = document.getElementById('import-modal-content');
+  if (!content) return;
+  if (!S.pendingImport) {
+    content.innerHTML = `
+      <h3 style="color:var(--text);font-size:18px;margin-bottom:4px;">Importar treino</h3>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">Cole o JSON do treino abaixo, ou abra o link de importação (?import=... / #import=...) direto no app.</p>
+      <div class="form-group"><textarea id="import-text" rows="8" placeholder='{"tipo":"JJ","dur":90,"pse":7,"data":"2026-10-28T19:00:00","tecnica":"...","rolas":[...]}'></textarea></div>
+      <button class="btn btn-gold btn-full" onclick="previewImport()">Pré-visualizar</button>
+    `;
+    return;
+  }
+  const { session, importId, dup } = S.pendingImport;
+  content.innerHTML = `
+    <h3 style="color:var(--text);font-size:18px;margin-bottom:4px;">Confirmar importação</h3>
+    ${dup ? `<div class="badge badge-red" style="margin-bottom:10px;">Esse treino já foi importado antes. Confirmar de novo vai duplicar os dados.</div>` : ''}
+    <div class="card"><div class="card-inner">
+      <div style="font-weight:700;color:var(--text);margin-bottom:4px;">${esc(session.tipo)} — ${new Date(session.data).toLocaleDateString('pt-BR')}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">${session.dur} min · PSE ${session.pse}${session.pesoAtleta?(' · '+session.pesoAtleta+'kg'):''}</div>
+      ${session.tecnica?`<div style="font-size:13px;margin-bottom:6px;"><strong style="color:var(--text);">Técnica:</strong> ${esc(session.tecnica)}</div>`:''}
+      ${session.rolas.length?`<div class="divider"></div><div class="section-label">Rolas (${session.rolas.length})</div>
+        ${session.rolas.map((r,i)=>`<div style="font-size:12px;color:var(--text2);padding:3px 0;">${i+1}. ${esc(r.parceiro)||'Parceiro não informado'} ${r.faixaPeso?'— '+esc(r.faixaPeso):''}${r.esforco?' · '+esc(r.esforco):''}<br>${esc(r.detalhe)||'Detalhes não registrados'}</div>`).join('')}`:''}
+      ${session.funcionou?`<div class="divider"></div><div style="font-size:12px;"><strong style="color:var(--text);">Funcionou:</strong> ${esc(session.funcionou)}</div>`:''}
+      ${session.travou?`<div style="font-size:12px;margin-top:4px;"><strong style="color:var(--text);">Travou:</strong> ${esc(session.travou)}</div>`:''}
+      ${session.curriculoTags.length?`<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;">${session.curriculoTags.map(t=>`<span class="badge badge-gold">${esc(t)}</span>`).join('')}</div>`:''}
+    </div></div>
+    <button class="btn btn-gold btn-full" style="margin-top:10px;" onclick="confirmImport()">${dup?'Importar mesmo assim':'Confirmar e salvar'}</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="cancelImport()">Cancelar</button>
+  `;
+}
+
+function previewImport() {
+  const txt = document.getElementById('import-text')?.value || '';
+  const r = validateImportPayload(txt);
+  if (!r.ok) { alert('Não deu para importar: ' + r.erro); return; }
+  S.pendingImport = { session:r.session, importId:r.importId, dup:isAlreadyImported(r.importId) };
+  renderImportModal();
+}
+
+function confirmImport() {
+  if (!S.pendingImport) return;
+  const { session, importId } = S.pendingImport;
+  session.importId = importId;
+  S.sessions.push(session);
+  save('jj:ss', S.sessions);
+  if (!S.importedIds.includes(importId)) { S.importedIds.push(importId); save('jj:imp', S.importedIds); }
+  S.pendingImport = null;
+  closeAllSheets();
+  clearImportFromUrl();
+  renderScreen(S.tab);
+}
+
+function cancelImport() {
+  S.pendingImport = null;
+  closeAllSheets();
+  clearImportFromUrl();
+}
+
+function clearImportFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('import');
+    url.hash = '';
+    history.replaceState({}, '', url.pathname + (url.search || ''));
+  } catch(e) {}
+}
+
+// Roda no carregamento: se a URL trouxer ?import= ou #import=, decodifica e já abre a pré-visualização
+// (nunca salva direto — a confirmação do passo anterior continua obrigatória).
+function checkUrlImport() {
+  try {
+    const url = new URL(window.location.href);
+    let raw = url.searchParams.get('import');
+    if (!raw && url.hash.indexOf('import=')===1) raw = url.hash.slice('#import='.length);
+    if (!raw) return;
+    let jsonText;
+    try { jsonText = b64urlDecode(raw); } catch(e) { jsonText = decodeURIComponent(raw); }
+    const r = validateImportPayload(jsonText);
+    if (!r.ok) { alert('Link de importação inválido: ' + r.erro); clearImportFromUrl(); return; }
+    S.pendingImport = { session:r.session, importId:r.importId, dup:isAlreadyImported(r.importId) };
+    renderImportModal();
+    openBottomSheet('import-modal');
+  } catch(e) {}
 }
 
 // ============================================================
@@ -1230,7 +1720,7 @@ function renderHoje() {
       </button>
     </div>
     <div style="margin-bottom:16px;">
-      <div style="font-size:22px;font-weight:800;color:var(--text);">${g}, ${p.nome.split(' ')[0]}</div>
+      <div style="font-size:22px;font-weight:800;color:var(--text);">${g}, ${esc(p.nome.split(' ')[0])}</div>
       <div style="font-size:13px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:8px;">
         <span style="width:10px;height:10px;border-radius:50%;background:${belt.match(/,([^,]+)\)$/)?.[1]?.trim()||'#3b82f6'};display:inline-block;"></span>
         Faixa ${p.faixa} · Semana ${S.week}/16
@@ -1263,9 +1753,17 @@ function renderHoje() {
     <div class="section-label" style="margin-top:4px;">HOJE — ${dayStr}</div>
     ${todayCard}
 
-    <button class="btn btn-outline btn-full" onclick="openRegister()" style="margin-bottom:12px;">
+    <button class="btn btn-outline btn-full" onclick="openRegister()" style="margin-bottom:8px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Registrar Sessão de Hoje
+    </button>
+    <button class="btn btn-outline btn-full" onclick="startVoiceRegister()" style="margin-bottom:8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4"/></svg>
+      Registrar treino por voz
+    </button>
+    <button class="btn btn-outline btn-full" onclick="openImportModal()" style="margin-bottom:12px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      Importar treino
     </button>
 
     <div class="section-label">Coach IA</div>
@@ -1285,7 +1783,7 @@ function renderHoje() {
         <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
           <div style="width:40px;height:40px;border-radius:var(--r-sm);background:${s.tipo.includes('JJ')?'var(--ember-dim)':'var(--gold-dim)'};display:flex;align-items:center;justify-content:center;font-size:18px;">${s.tipo.includes('JJ')?'🥋':'🏋️'}</div>
           <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;">${s.tipo}</div>
+            <div style="font-size:13px;font-weight:600;">${esc(s.tipo)}</div>
             <div style="font-size:11px;color:var(--text2);">${new Date(s.data).toLocaleDateString('pt-BR')} · ${s.dur}min · PSE ${s.pse}</div>
           </div>
           <div style="font-size:16px;font-weight:800;color:var(--gold);">${(s.pse*s.dur)}</div>
@@ -1691,7 +2189,7 @@ function renderSimContent() {
       <div>
         <div style="font-size:13px;font-weight:700;margin-bottom:8px;">PSE do Round ${S.simRound}</div>
         <div class="pse-grid">
-          ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pse-btn ${S.pseRound[S.simRound]===n?'selected':''}" onclick="setPseRound(${n})">${n}</button>`).join('')}
+          ${[0,1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pse-btn ${S.pseRound[S.simRound]===n?'selected':''}" onclick="setPseRound(${n})">${n}</button>`).join('')}
         </div>
       </div>` : ''}
     ${Object.keys(done).length>0?`<div style="margin-top:8px;font-size:12px;color:var(--text2);">Rounds: ${Object.entries(done).map(([r,v])=>`R${r}:${v}`).join(' · ')}</div>`:''}
@@ -1777,7 +2275,7 @@ function renderChat() {
   return `
     <div class="chat-wrap" id="chat-messages">
       ${S.messages.length===0?`<div class="msg-ai">Olá! Sou seu coach de JJ${(S.profile||{}).apiKey?'':' local (grátis, funciona offline)'}, com base em evidências científicas e nos seus dados registrados. Posso comentar sua carga (ACWR), sono/recuperação, nutrição, técnica, prontidão para competir ou motivação. Pergunte algo como "como está minha carga essa semana?"</div>`:''}
-      ${S.messages.map(m=>`<div class="${m.role==='user'?'msg-user':'msg-ai'}">${m.content}</div>`).join('')}
+      ${S.messages.map(m=>`<div class="${m.role==='user'?'msg-user':'msg-ai'}">${m.role==='user'?esc(m.content):m.content}</div>`).join('')}
       <div id="chat-thinking" style="display:none;" class="msg-thinking">
         <div class="dot-pulse"></div><div class="dot-pulse"></div><div class="dot-pulse"></div>
       </div>
@@ -1838,10 +2336,10 @@ function renderIAConfig() {
           </div>
         </div>
         <div class="form-group"><label>Chave API Anthropic (opcional)</label>
-          <input id="cfg-api" type="password" value="${p.apiKey||''}" placeholder="sk-ant-... (deixe vazio para usar a IA local)" />
+          <input id="cfg-api" type="password" value="${esc(p.apiKey||'')}" placeholder="sk-ant-... (deixe vazio para usar a IA local)" />
           <p style="font-size:11px;color:var(--text3);margin-top:4px;">Sem chave, o coach IA usa regras locais baseadas nos seus treinos registrados — grátis, privado e offline. Colar uma chave Anthropic é opcional e ativa respostas geradas por IA online. Fica somente no seu dispositivo.</p>
         </div>
-        <div class="form-group"><label>Nome</label><input id="cfg-nome" value="${p.nome||''}" /></div>
+        <div class="form-group"><label>Nome</label><input id="cfg-nome" value="${esc(p.nome||'')}" /></div>
         <div class="grid-2">
           <div class="form-group"><label>Faixa</label>
             <select id="cfg-faixa">
@@ -1857,7 +2355,120 @@ function renderIAConfig() {
         <button class="btn btn-gold btn-full" onclick="saveConfig()">Salvar</button>
       </div>
     </div>
+    ${renderDiasConfig()}
+    ${renderCurriculoConfig()}
   `;
+}
+
+// ============================================================
+// DIAS DE TREINO (editável) — JJ nos dias marcados, força nos demais automaticamente
+// ============================================================
+function renderDiasConfig() {
+  if (!S.cfgJjDays) S.cfgJjDays = getJjDays().slice();
+  const nomes = [['Seg',1],['Ter',2],['Qua',3],['Qui',4],['Sex',5],['Sáb',6],['Dom',0]];
+  return `
+    <div class="card" id="dias-config-card">
+      <div class="card-inner">
+        <div class="card-title">Dias de Jiu-Jítsu</div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Toque para marcar os dias de JJ. Os demais dias viram treino de força automaticamente (A/B/C em rodízio).</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${nomes.map(([label,d])=>`<button class="pse-chip ${S.cfgJjDays.includes(d)?'sel':''}" onclick="toggleCfgDia(${d})">${label}</button>`).join('')}
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:10px;">Força nos demais dias: <strong style="color:var(--text2);">${WEEK_ORDER.filter(d=>!S.cfgJjDays.includes(d)).map(dayOfWeekStr).join(', ')||'nenhum'}</strong></p>
+        <button class="btn btn-gold btn-full" style="margin-top:12px;" onclick="saveDiasConfig()">Salvar dias</button>
+      </div>
+    </div>
+  `;
+}
+
+function toggleCfgDia(d) {
+  if (!S.cfgJjDays) S.cfgJjDays = getJjDays().slice();
+  const i = S.cfgJjDays.indexOf(d);
+  if (i>=0) S.cfgJjDays.splice(i,1); else S.cfgJjDays.push(d);
+  rerenderDiasCard();
+}
+
+// Atualiza só o card de dias — preserva o que o usuário estiver digitando no card de perfil acima.
+function rerenderDiasCard() {
+  const el = document.getElementById('dias-config-card');
+  if (el) el.outerHTML = renderDiasConfig();
+}
+
+function saveDiasConfig() {
+  const p = S.profile || ensureProfileDefaults({ ...DEFAULT_PROFILE });
+  p.jjDays = (S.cfgJjDays && S.cfgJjDays.length) ? S.cfgJjDays.slice() : DEFAULT_JJ_DAYS.slice();
+  S.profile = p;
+  save('jj:p', p);
+  S.cfgJjDays = null;
+  renderIA();
+  renderScreen(S.tab);
+}
+
+// ============================================================
+// CURRÍCULO DE TÉCNICAS (editável) — substitui o objetivo fixo de antes
+// ============================================================
+function getCurriculo() {
+  const p = S.profile || DEFAULT_PROFILE;
+  return (Array.isArray(p.curriculo) && p.curriculo.length) ? p.curriculo : DEFAULT_CURRICULO;
+}
+
+function renderCurriculoConfig() {
+  if (!S.cfgCurriculo) S.cfgCurriculo = getCurriculo().slice();
+  return `
+    <div class="card" id="curriculo-config-card">
+      <div class="card-inner">
+        <div class="card-title">Seu Currículo de Técnicas</div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Os itens que você está treinando. Toque num item para renomear, no × para remover.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          ${S.cfgCurriculo.map((item,i)=>`
+            <span class="badge badge-gold" style="cursor:pointer;" onclick="renameCfgCurriculoItem(${i})">${esc(item)}
+              <button onclick="event.stopPropagation();removeCfgCurriculoItem(${i})" style="background:none;border:none;color:var(--text2);cursor:pointer;font-weight:700;margin-left:2px;padding:0;">×</button>
+            </span>`).join('') || '<span style="font-size:12px;color:var(--text3);">Nenhum item ainda.</span>'}
+        </div>
+        <div style="display:flex;gap:6px;">
+          <input id="cfg-curr-novo" placeholder="Novo item (ex: Berimbolo)" onkeydown="if(event.key==='Enter')addCfgCurriculoItem();" />
+          <button class="btn btn-outline" onclick="addCfgCurriculoItem()">Adicionar</button>
+        </div>
+        <button class="btn btn-gold btn-full" style="margin-top:12px;" onclick="saveCurriculoConfig()">Salvar currículo</button>
+      </div>
+    </div>
+  `;
+}
+
+function addCfgCurriculoItem() {
+  const inp = document.getElementById('cfg-curr-novo');
+  const v = (inp?.value || '').trim();
+  if (!v) return;
+  if (!S.cfgCurriculo) S.cfgCurriculo = getCurriculo().slice();
+  if (!S.cfgCurriculo.some(i=>i.toLowerCase()===v.toLowerCase())) S.cfgCurriculo.push(v);
+  rerenderCurriculoCard();
+}
+
+function removeCfgCurriculoItem(i) {
+  S.cfgCurriculo.splice(i,1);
+  rerenderCurriculoCard();
+}
+
+function renameCfgCurriculoItem(i) {
+  const atual = S.cfgCurriculo[i];
+  const novo = (window.prompt('Renomear item:', atual) || '').trim();
+  if (novo) S.cfgCurriculo[i] = novo;
+  rerenderCurriculoCard();
+}
+
+// Atualiza só o card de currículo — preserva o que o usuário estiver digitando no card de perfil acima.
+function rerenderCurriculoCard() {
+  const el = document.getElementById('curriculo-config-card');
+  if (el) el.outerHTML = renderCurriculoConfig();
+}
+
+function saveCurriculoConfig() {
+  const p = S.profile || ensureProfileDefaults({ ...DEFAULT_PROFILE });
+  p.curriculo = (S.cfgCurriculo && S.cfgCurriculo.length) ? S.cfgCurriculo.slice() : DEFAULT_CURRICULO.slice();
+  S.profile = p;
+  save('jj:p', p);
+  S.cfgCurriculo = null;
+  renderIA();
 }
 
 function saveConfig() {
@@ -1868,6 +2479,7 @@ function saveConfig() {
   p.peso = parseFloat(document.getElementById('cfg-peso').value)||70;
   p.altura = parseFloat(document.getElementById('cfg-altura').value)||175;
   p.idade = parseInt(document.getElementById('cfg-idade').value)||30;
+  ensureProfileDefaults(p);
   S.profile = p;
   save('jj:p', p);
   setBelt(p.faixa);
@@ -1879,7 +2491,7 @@ function saveConfig() {
 // ============================================================
 function buildSystem() {
   const p = S.profile || DEFAULT_PROFILE;
-  return `Você é um coach especialista em jiu-jítsu e preparação física baseada em evidências científicas. Responda SEMPRE em português brasileiro. Seja direto, prático e específico para jiu-jítsu. Dados do atleta: ${p.nome}, faixa ${p.faixa}, ${p.peso}kg, ${p.altura}cm, ${p.idade} anos, objetivo: ${p.objetivo}. Semana atual: ${S.week} de 16 (fase: ${(PERIODOS[(S.week-1)%16]||{}).fase}). ACWR: ${calcACWR().acwr||'sem dados'}. Use referências científicas quando relevante. Seja motivador mas realista.`;
+  return `Você é um coach especialista em jiu-jítsu e preparação física baseada em evidências científicas. Responda SEMPRE em português brasileiro. Seja direto, prático e específico para jiu-jítsu. Dados do atleta: ${p.nome}, faixa ${p.faixa}, ${p.peso}kg, ${p.altura}cm, ${p.idade} anos. Currículo de técnicas em foco: ${getCurriculo().join(', ')}. Semana atual: ${S.week} de 16 (fase: ${(PERIODOS[(S.week-1)%16]||{}).fase}). ACWR: ${calcACWR().acwr||'sem dados'}. Use referências científicas quando relevante. Seja motivador mas realista.`;
 }
 
 async function sendChat() {
@@ -1947,7 +2559,7 @@ function localCoachReply(text) {
     return `Nutrição recomendada para a semana ${sem} (${fase.fase}): ${fase.nutri}`;
   }
   if (/t[eé]cnic|guarda|passagem|finaliza|chave|tri[aâ]ngulo|raspagem/.test(t)) {
-    return `O foco técnico desta semana é: <strong>${fase.jj.foco}</strong> (intensidade ${fase.jj.intensidade}). Aproveite os treinos de JJ (Ter/Qui/Sáb/Dom) para repetir essas posições com atenção aos detalhes.`;
+    return `O foco técnico desta semana é: <strong>${fase.jj.foco}</strong> (intensidade ${fase.jj.intensidade}). Aproveite os treinos de JJ (${jjDaysLabel()}) para repetir essas posições com atenção aos detalhes.`;
   }
   if (/compet|campeonato|torneio|pront/.test(t)) {
     const scoreTxt = fitScore!=null ? `Seu índice físico atual é ${fitScore}/100 (${fitScoreClass(fitScore)}).` : 'Você ainda não registrou os testes físicos na aba Evolução — faça-os para eu avaliar sua prontidão.';
@@ -2011,9 +2623,8 @@ function saveProfile() {
   const peso = parseFloat(document.getElementById('p-peso')?.value) || 70;
   const altura = parseFloat(document.getElementById('p-altura')?.value) || 175;
   const faixa = document.getElementById('p-faixa')?.value || 'Azul';
-  const objetivo = document.getElementById('p-obj')?.value || 'performance';
   const apiKey = document.getElementById('p-api')?.value || '';
-  S.profile = { nome, idade, peso, altura, faixa, objetivo, apiKey };
+  S.profile = ensureProfileDefaults({ nome, idade, peso, altura, faixa, objetivo:'performance', apiKey });
   save('jj:p', S.profile);
   setBelt(faixa);
   document.getElementById('profile-modal').style.display = 'none';
@@ -2030,6 +2641,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     setBelt(S.profile.faixa);
     goTab('hoje');
   }
+  checkUrlImport();
 });
 
 // ============================================================
