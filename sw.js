@@ -1,5 +1,5 @@
 // Service worker do JJ Performance — cache offline do app shell e dos recursos externos (fonte/Chart.js).
-const CACHE_VERSION = 'jjp-v1';
+const CACHE_VERSION = 'jjp-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
